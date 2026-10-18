@@ -1,0 +1,6 @@
+{
+  "passed": true,
+  "vscode": "1.142.0",
+  "officialCodex": null,
+  "api": "workspace configuration, authenticated IPC, child-process association, full status/title color keys, acknowledgement, restoration"
+}

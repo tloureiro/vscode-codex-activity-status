@@ -1,0 +1,84 @@
+{
+  "passed": true,
+  "vscode": "1.142.0",
+  "sameProfile": true,
+  "sameProject": true,
+  "sameThreadIdentifier": true,
+  "independentWorkspaceFiles": true,
+  "bothWindowDiagnosticsQueried": true,
+  "unfocusedAtFinish": true,
+  "peerAcknowledgementPreservedMainUnread": true,
+  "peerFocusAfterCompletionPreservedMainUnread": true,
+  "peerAppReturnPreservedMainUnread": false,
+  "realFocusReturnAcknowledged": true,
+  "focusReturnRestoreMs": 54,
+  "focusEvents": [
+    {
+      "focused": false,
+      "active": true,
+      "elapsedMs": 0
+    },
+    {
+      "focused": true,
+      "active": true,
+      "elapsedMs": 1406
+    },
+    {
+      "focused": false,
+      "active": true,
+      "elapsedMs": 1492
+    },
+    {
+      "focused": true,
+      "active": true,
+      "elapsedMs": 1879
+    },
+    {
+      "focused": false,
+      "active": true,
+      "elapsedMs": 2216
+    },
+    {
+      "focused": true,
+      "active": true,
+      "elapsedMs": 2900
+    }
+  ],
+  "renderedStatusBarChecks": [
+    {
+      "label": "Unfocused processing remains blue",
+      "background": "rgb(36, 90, 145)",
+      "focused": false
+    },
+    {
+      "label": "Unfocused approval remains amber",
+      "background": "rgb(166, 107, 22)",
+      "focused": false
+    },
+    {
+      "label": "Returning to A preserves amber",
+      "background": "rgb(166, 107, 22)",
+      "focused": true
+    },
+    {
+      "label": "Focusing B preserves rendered amber in A",
+      "background": "rgb(166, 107, 22)",
+      "focused": false
+    },
+    {
+      "label": "Unfocused completion remains purple",
+      "background": "rgb(98, 91, 120)",
+      "focused": false
+    },
+    {
+      "label": "Focus acknowledgement restores Dark Modern baseline",
+      "background": "rgb(24, 24, 24)",
+      "focused": true
+    },
+    {
+      "label": "Focusing B preserves rendered purple in A",
+      "background": "rgb(98, 91, 120)",
+      "focused": false
+    }
+  ]
+}

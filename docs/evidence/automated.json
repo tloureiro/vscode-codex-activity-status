@@ -1,0 +1,16 @@
+{
+  "date": "2026-10-18",
+  "syntaxCheck": "passed",
+  "nodeTests": {
+    "passed": 42,
+    "failed": 0
+  },
+  "npmAudit": {
+    "knownVulnerabilities": 0
+  },
+  "notes": "macOS validation passed, including local socket tests and a real two-window rendered regression. Public-file checks found no private home paths or common credential patterns. Packaged files exclude local settings, fixtures, development tooling, and generated evidence. Authenticated model execution remains outside automated coverage.",
+  "lint": "passed",
+  "formatCheck": "passed",
+  "publicFileCheck": "passed",
+  "packageInspection": "passed"
+}
