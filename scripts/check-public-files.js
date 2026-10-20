@@ -5,7 +5,7 @@ const { execFileSync } = require('node:child_process');
 // Include untracked files so an initial commit receives the same checks.
 // Report locations only, never the value of a possible credential.
 const files = execFileSync(
-  'git',
+  process.env.GIT_READ_ONLY_BIN || 'git',
   ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
   { encoding: 'utf8' },
 )

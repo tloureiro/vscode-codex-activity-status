@@ -77,20 +77,6 @@ class Setup {
       const [label, detail] = messages[this.bridgeIssue];
       return { code: this.bridgeIssue, label, detail };
     }
-    if (!this.options.workspaceReady)
-      return {
-        code: 'workspace',
-        label: 'Codex: Open a Folder',
-        detail:
-          'Open a local folder or save this workspace to enable activity colors in this window.',
-      };
-    if (this.options.colorConflict?.())
-      return {
-        code: 'shared',
-        label: 'Codex: Shared Workspace',
-        detail:
-          'Full-bar colors are paused because another monitored window shares these workspace settings. VS Code cannot color those windows independently. Activity tracking remains per window.',
-      };
     if (!this.options.connected())
       return {
         code: 'waiting',
@@ -171,14 +157,6 @@ class Setup {
           );
         return;
       }
-      if (s.code === 'workspace') {
-        await this.vscode.commands.executeCommand('workbench.action.saveWorkspaceAs');
-        return;
-      }
-      if (s.code === 'shared') {
-        await this.vscode.window.showInformationMessage(s.detail);
-        return;
-      }
       if (s.code === 'error') {
         await this.options.diagnostics();
         return;
@@ -216,11 +194,7 @@ class Setup {
               ? 'Find Codex'
               : s.code === 'conflict'
                 ? 'Review Setup'
-                : s.code === 'workspace'
-                  ? 'Save Workspace'
-                  : s.code === 'shared'
-                    ? 'Show Explanation'
-                    : 'Set Up Activity Colors',
+                : 'Set Up Activity Colors',
           ];
     const detail = ['bridge', 'repair'].includes(s.code)
       ? s.detail +

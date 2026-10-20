@@ -1,13 +1,11 @@
 'use strict';
 const vscode = require('vscode');
-const fs = require('node:fs');
-const path = require('node:path');
-const { fork } = require('node:child_process');
 const { ActivityState } = require('./state');
-const { Appearance, defaults, validColor } = require('./appearance');
+const { StatusAppearance } = require('./status-appearance');
+const { LegacyRecovery } = require('./legacy-recovery');
 const { listen } = require('./bridge');
 const { Setup } = require('./setup');
-const { ColorLease, appearanceTarget } = require('./color-lease');
+const { appearanceTarget } = require('./color-lease');
 const { collect } = require('./diagnostics');
 let controller;
 function config() {
@@ -15,10 +13,6 @@ function config() {
   return {
     enabled: c.get('enabled', true),
     autoAcknowledge: c.get('autoAcknowledge', true),
-    surface: c.get('surface', 'statusBar'),
-    ...Object.fromEntries(
-      Object.keys(defaults).map((s) => [s + 'Color', validColor(c.get(s + 'Color'), defaults[s])]),
-    ),
   };
 }
 async function activate(context) {
@@ -28,6 +22,7 @@ async function activate(context) {
   status.name = 'Codex Window Activity';
   status.show();
   context.subscriptions.push(output, status);
+  const appearance = new StatusAppearance(vscode, status);
   const activityTrace = [];
   let lastSummary = '';
   function trace(event, detail = {}) {
@@ -36,10 +31,8 @@ async function activate(context) {
   }
   const state = new ActivityState();
   state.focused = vscode.window.state.focused;
-  let appearance,
-    bridge,
-    lease,
-    watchdog,
+  let bridge,
+    recovery,
     setup,
     promptTimer,
     error = '',
@@ -60,12 +53,13 @@ async function activate(context) {
       lastSummary = summaryKey;
     }
     const health = setup?.status();
-    status.text =
-      health?.code === 'shared'
-        ? `Codex: ${s.state} (shared workspace)`
-        : health && health.code !== 'ready'
-          ? health.label
-          : `Codex: ${s.state === 'approval' ? 'Needs input' : s.state}`;
+    appearance.update(
+      s.state,
+      health && health.code !== 'ready'
+        ? health.label
+        : `Codex: ${s.state === 'approval' ? 'Needs input' : s.state}`,
+      c.enabled,
+    );
     status.command =
       health?.code === 'ready'
         ? s.state === 'finished'
@@ -73,11 +67,8 @@ async function activate(context) {
           : 'codexActivity.diagnostics'
         : 'codexActivity.setup';
     status.tooltip = `${health?.detail || error || 'Checking activity setup'}\n${s.processing} working · ${s.waiting} waiting · ${s.unread} unread · ${s.connected} connections\n${s.problems.join(', ')}\n${health?.code === 'ready' ? (s.state === 'finished' ? 'Click to acknowledge this completion and restore normal colors.' : 'Click for diagnostics; use Acknowledge Completion to clear unread completions.') : 'Click to complete setup or resolve the connection.'}`;
-    if (appearance)
-      appearance.update(c.enabled && lease?.exclusive ? s.state : 'unknown', c).catch((e) => {
-        error = 'Appearance update failed: ' + e.message;
-        output.appendLine(error);
-      });
+    for (const detail of [appearance.snapshot().limitation, recovery?.detail])
+      if (detail) status.tooltip += '\n' + detail;
   }
   async function installBridge() {
     const changed = await setup.ensureBridge();
@@ -98,7 +89,7 @@ async function activate(context) {
         target ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global,
       );
     state.clear();
-    if (appearance) await appearance.dispose();
+    appearance.update('idle', 'Codex: Off', false);
     const saved = context.globalState.get('bridge');
     if (saved) {
       const c = vscode.workspace.getConfiguration('chatgpt');
@@ -127,14 +118,14 @@ async function activate(context) {
       app: process.ppid,
       windowState: { focused: vscode.window.state.focused, active: vscode.window.state.active },
       appearanceTarget: target,
-      exclusiveColors: lease?.exclusive,
+      appearance: appearance.snapshot(),
+      legacyRecovery: recovery?.detail || null,
       enabled: config().enabled,
       bridge: !!bridge,
       workspace,
       setup: setup.status(),
       summary: state.summary(),
       recentEvents: activityTrace,
-      appearanceTimings: appearance?.timings,
       error,
     };
   }
@@ -143,8 +134,6 @@ async function activate(context) {
     output.show(true);
   }
   setup = new Setup(vscode, context, {
-    workspaceReady: !!target,
-    colorConflict: () => !!lease && !lease.exclusive,
     enabled: () => config().enabled,
     connected: () => state.summary().connected > 0,
     error: () => error,
@@ -206,7 +195,7 @@ async function activate(context) {
           });
       }
       render();
-      // Appearance restoration has priority over checking the launcher on disk.
+      // Update the indicator before checking the launcher on disk.
       if (e.focused) {
         setup.refresh();
         render();
@@ -232,12 +221,10 @@ async function activate(context) {
           bridge?.reset();
         }
         render();
-      } else if (
-        e.affectsConfiguration('workbench.colorCustomizations') &&
-        appearance &&
-        !appearance.isOwnChange()
-      )
+      } else if (e.affectsConfiguration('workbench.colorCustomizations')) {
+        recovery?.retry();
         render();
+      }
     }),
   );
   context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(render));
@@ -249,42 +236,10 @@ async function activate(context) {
   );
   if (process.platform !== 'darwin' || vscode.env.remoteName)
     error = 'Unsupported environment: use local macOS desktop VS Code.';
-  else if (target) {
+  else {
+    recovery = new LegacyRecovery(vscode, target, render);
+    await recovery.start();
     try {
-      lease = new ColorLease(target.file, render);
-      appearance = new Appearance(vscode, target.file, {
-        onUpdate: (event) => {
-          if (event.outcome !== 'unchanged') trace('appearance', event);
-        },
-        canHighlight: () => !!lease?.exclusive && config().enabled,
-        verifyDisk: true,
-        journalPath: lease.journalPath,
-        container: target.container,
-        owner: lease.owner.token,
-        canRestoreOther: () => lease.exclusive,
-      });
-      // Recover old generated-workspace journals without creating more wrappers.
-      const legacyJournal = target.file + '.appearance.json';
-      if (fs.existsSync(legacyJournal) && !fs.existsSync(lease.journalPath))
-        fs.renameSync(legacyJournal, lease.journalPath);
-      await appearance.update('unknown', config());
-      watchdog = fork(
-        path.join(context.extensionPath, 'src', 'watchdog.js'),
-        [target.file, lease.member, lease.owner.token, lease.journalPath],
-        {
-          detached: true,
-          stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-          env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
-          execArgv: [],
-        },
-      );
-      watchdog.on('error', (e) => {
-        error = 'Crash recovery unavailable: ' + e.message;
-        render();
-      });
-      lease.setWatchdog(watchdog.pid);
-      watchdog.unref();
-      watchdog.channel?.unref();
       bridge = await listen(
         (source) => {
           if (config().enabled) state.connect(source);
@@ -316,27 +271,8 @@ async function activate(context) {
       disposed = true;
       clearTimeout(promptTimer);
       bridge?.dispose();
-      try {
-        if (appearance) await appearance.dispose();
-        const pending =
-          appearance && fs.existsSync(appearance.journalPath)
-            ? JSON.parse(fs.readFileSync(appearance.journalPath, 'utf8'))
-            : null;
-        if (pending?.owner === lease?.owner.token && watchdog?.connected) {
-          // If settings and the host's cache were still reconciling at shutdown,
-          // leave our registration until the helper finishes disk recovery.
-          lease.dispose(false);
-          watchdog.disconnect();
-          return;
-        }
-        if (watchdog?.connected) watchdog.send('stop');
-        lease?.dispose();
-      } catch (e) {
-        // Keep the recovery owner/journal and let the helper retry after IPC loss.
-        lease?.dispose(false);
-        if (watchdog?.connected) watchdog.disconnect();
-        throw e;
-      }
+      appearance.dispose();
+      await recovery?.dispose();
     },
   };
   render();
@@ -356,8 +292,8 @@ async function activate(context) {
     workspaceReady: !!target,
     host: process.pid,
     statusAction: () => status.command,
-    whenAppearanceSettled: () => appearance?.queue,
-    isOwnAppearance: () => appearance?.isOwnChange(),
+    whenAppearanceSettled: () => recovery?.queue,
+    appearance: () => appearance.snapshot(),
   };
 }
 async function deactivate() {

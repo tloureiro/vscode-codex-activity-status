@@ -1,5 +1,6 @@
 'use strict';
 const fs = require('node:fs');
+const path = require('node:path');
 const { parse, modify, applyEdits } = require('jsonc-parser');
 const defaults = { processing: '#245A91', finished: '#625B78', approval: '#A66B16' };
 function validColor(value, fallback) {
@@ -103,10 +104,30 @@ function atomicJson(path, value) {
   fs.writeFileSync(tmp, JSON.stringify(value), { mode: 0o600 });
   fs.renameSync(tmp, path);
 }
+function removeCreatedSettings(file, journal) {
+  if (journal?.container !== 'folder' || !journal.createdSettingsFile) return;
+  try {
+    // Keep user settings, comments, and replacement symlinks. An empty file is
+    // ours to remove only when the journal recorded its original absence.
+    if (!fs.lstatSync(file).isFile() || !/^\s*\{\s*\}\s*$/.test(fs.readFileSync(file, 'utf8')))
+      return;
+    fs.unlinkSync(file);
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  if (journal.createdSettingsDirectory) {
+    try {
+      fs.rmdirSync(path.dirname(file));
+    } catch (error) {
+      if (!['ENOENT', 'ENOTEMPTY', 'EEXIST'].includes(error.code)) throw error;
+    }
+  }
+}
 function restoreFile(workspace, journalPath) {
   if (!fs.existsSync(journalPath)) return;
   const journal = JSON.parse(fs.readFileSync(journalPath, 'utf8'));
   if (!fs.existsSync(workspace)) {
+    removeCreatedSettings(workspace, journal);
     fs.unlinkSync(journalPath);
     return;
   }
@@ -136,6 +157,7 @@ function restoreFile(workspace, journalPath) {
       ),
     ),
   );
+  removeCreatedSettings(workspace, journal);
   fs.unlinkSync(journalPath);
 }
 class Appearance {
@@ -250,6 +272,16 @@ class Appearance {
     if (next.journal) {
       next.journal.hadColors = had;
       next.journal.container = this.options.container || 'workspace';
+      if (next.journal.container === 'folder') {
+        // Carry provenance through palette changes, owner handoffs and crashes.
+        // Older journals have no provenance, so never delete their settings file.
+        next.journal.createdSettingsFile = journal
+          ? journal.createdSettingsFile === true
+          : !fs.existsSync(this.workspace);
+        next.journal.createdSettingsDirectory = journal
+          ? journal.createdSettingsDirectory === true
+          : !fs.existsSync(path.dirname(this.workspace));
+      }
       if (this.options.owner) next.journal.owner = this.options.owner;
       for (const entry of next.journal.entries) {
         const old = journal?.entries.find((e) => e.block === entry.block && e.key === entry.key);
@@ -276,7 +308,15 @@ class Appearance {
       // commits. Keeping them longer would mistake a later user edit for ours.
       for (const entry of next.journal.entries) delete entry.previous;
       atomicJson(this.journalPath, next.journal);
-    } else if (fs.existsSync(this.journalPath)) fs.unlinkSync(this.journalPath);
+    } else if (journal) {
+      try {
+        removeCreatedSettings(this.workspace, journal);
+        fs.unlinkSync(this.journalPath);
+      } catch (error) {
+        this.signature = undefined;
+        throw error;
+      }
+    }
     return equal(current, value) ? 'unchanged' : 'written';
   }
   isOwnChange() {

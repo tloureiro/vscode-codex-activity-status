@@ -1,8 +1,8 @@
 {
   "name": "codex-activity-status",
   "displayName": "Codex Window Activity",
-  "description": "Steady full-window activity and unread completion colors for Codex (experimental local IDE bridge).",
-  "version": "0.1.0",
+  "description": "Per-window Codex activity with steady blue, amber, and purple status-item colors (experimental local IDE bridge).",
+  "version": "0.2.0",
   "publisher": "tloureiro",
   "license": "MIT",
   "engines": {
@@ -83,19 +83,22 @@
           "type": "string",
           "default": "#245A91",
           "pattern": "^#[0-9a-fA-F]{6}$",
-          "description": "Opaque six-digit hex color while a turn is working."
+          "description": "Opaque six-digit hex color while a turn is working.",
+          "deprecationMessage": "Retired in 0.2.0. Activity uses fixed status-item colors; this setting is ignored."
         },
         "codexActivity.finishedColor": {
           "type": "string",
           "default": "#625B78",
           "pattern": "^#[0-9a-fA-F]{6}$",
-          "description": "Muted slate purple for unread successful completions."
+          "description": "Muted slate purple for unread successful completions.",
+          "deprecationMessage": "Retired in 0.2.0. Activity uses fixed status-item colors; this setting is ignored."
         },
         "codexActivity.approvalColor": {
           "type": "string",
           "default": "#A66B16",
           "pattern": "^#[0-9a-fA-F]{6}$",
-          "description": "Amber for a real approval or structured input request."
+          "description": "Amber for a real approval or structured input request.",
+          "deprecationMessage": "Retired in 0.2.0. Activity uses fixed status-item colors; this setting is ignored."
         },
         "codexActivity.surface": {
           "type": "string",
@@ -105,7 +108,8 @@
             "both"
           ],
           "default": "statusBar",
-          "description": "Color the full status bar, title bar, or both. macOS title colors require a custom title bar."
+          "description": "Color the full status bar, title bar, or both. macOS title colors require a custom title bar.",
+          "deprecationMessage": "Retired in 0.2.0. Activity uses fixed status-item colors; this setting is ignored."
         },
         "codexActivity.autoAcknowledge": {
           "type": "boolean",
@@ -113,7 +117,69 @@
           "description": "Acknowledge unread completions on returning to this window, or on a subsequent keyboard/mouse text-editor selection change. Webview and terminal interactions are not exposed."
         }
       }
-    }
+    },
+    "colors": [
+      {
+        "id": "codexActivity.processingBackground",
+        "description": "Codex processing status item background.",
+        "defaults": {
+          "dark": "#245A91",
+          "light": "#245A91",
+          "highContrast": "#245A91",
+          "highContrastLight": "#245A91"
+        }
+      },
+      {
+        "id": "codexActivity.processingForeground",
+        "description": "Codex processing status item foreground.",
+        "defaults": {
+          "dark": "#FFFFFF",
+          "light": "#FFFFFF",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#FFFFFF"
+        }
+      },
+      {
+        "id": "codexActivity.approvalBackground",
+        "description": "Codex approval status item background.",
+        "defaults": {
+          "dark": "#A66B16",
+          "light": "#A66B16",
+          "highContrast": "#A66B16",
+          "highContrastLight": "#A66B16"
+        }
+      },
+      {
+        "id": "codexActivity.approvalForeground",
+        "description": "Codex approval status item foreground.",
+        "defaults": {
+          "dark": "#000000",
+          "light": "#000000",
+          "highContrast": "#000000",
+          "highContrastLight": "#000000"
+        }
+      },
+      {
+        "id": "codexActivity.finishedBackground",
+        "description": "Codex finished status item background.",
+        "defaults": {
+          "dark": "#625B78",
+          "light": "#625B78",
+          "highContrast": "#625B78",
+          "highContrastLight": "#625B78"
+        }
+      },
+      {
+        "id": "codexActivity.finishedForeground",
+        "description": "Codex finished status item foreground.",
+        "defaults": {
+          "dark": "#FFFFFF",
+          "light": "#FFFFFF",
+          "highContrast": "#FFFFFF",
+          "highContrastLight": "#FFFFFF"
+        }
+      }
+    ]
   },
   "repository": {
     "type": "git",

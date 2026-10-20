@@ -43,6 +43,16 @@ async function connectRenderer(title, port = process.env.ACTIVITY_CDP_PORT) {
   };
   return {
     evaluate,
+    async statusItem() {
+      return evaluate(`(() => {
+        const item = [...document.querySelectorAll('.statusbar-item')]
+          .find(e => e.getAttribute('aria-label') === 'Codex Window Activity' || e.textContent.trim().startsWith('Codex:'));
+        if (!item) return null;
+        const label = item.querySelector('a') || item;
+        return { background: getComputedStyle(item).backgroundColor, foreground: getComputedStyle(label).color,
+          width: item.getBoundingClientRect().width, text: item.textContent.trim(), focused: document.hasFocus() };
+      })()`);
+    },
     async statusBar() {
       const response = await send('Runtime.evaluate', {
         expression: `(() => {

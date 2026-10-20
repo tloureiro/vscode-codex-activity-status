@@ -192,3 +192,10 @@ test('existing bridge setup is idempotent and a missing launcher is repairable',
   assert.equal(await f.setup.ensureBridge(), true);
   assert.equal(f.updates.length, 1);
 });
+
+test('a connected empty or unsaved window no longer requires appearance settings', async (t) => {
+  const f = fixture(t, { workspaceReady: false });
+  await f.setup.ensureBridge();
+  f.setConnected(true);
+  assert.equal(f.setup.status().code, 'ready');
+});

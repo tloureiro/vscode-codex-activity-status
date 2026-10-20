@@ -21,9 +21,8 @@ const net = require('node:net');
   const project = path.join(dir, 'project');
   fs.mkdirSync(project);
   const setupTest = process.env.ACTIVITY_SETUP === '1';
-  const multiTest = process.env.ACTIVITY_MULTI_WINDOW === '1';
   let debuggerPort;
-  if (multiTest) {
+  if (!setupTest) {
     const portFinder = net.createServer();
     await new Promise((resolve) => portFinder.listen(0, '127.0.0.1', resolve));
     debuggerPort = portFinder.address().port;
@@ -36,12 +35,23 @@ const net = require('node:net');
       folders: [{ path: project }],
       settings: {
         'window.titleBarStyle': 'custom',
-        ...(multiTest
-          ? { 'window.title': 'Activity renderer main', 'workbench.colorTheme': 'Dark Modern' }
-          : {}),
       },
     }),
   );
+  if (process.env.ACTIVITY_MIGRATION === '1') {
+    const { overlay, palette } = require('../src/appearance');
+    const data = JSON.parse(fs.readFileSync(workspace, 'utf8'));
+    const base = { 'statusBar.background': '#112233', 'editor.background': '#202122' };
+    const applied = overlay(base, palette('finished', { surface: 'both' }));
+    data.settings['workbench.colorCustomizations'] = applied.colors;
+    fs.writeFileSync(workspace, JSON.stringify(data));
+    fs.writeFileSync(workspace + '.appearance.json', JSON.stringify(applied.journal));
+  }
+  const userSettings = {
+    'window.title': 'Activity renderer main',
+    'workbench.colorTheme': 'Dark Modern',
+  };
+  fs.writeFileSync(path.join(dir, 'user', 'User', 'settings.json'), JSON.stringify(userSettings));
   let officialVersion = null;
   if (process.env.ACTIVITY_WITH_OFFICIAL === '1' || setupTest) {
     const installed = path.join(os.homedir(), '.vscode', 'extensions');
@@ -56,7 +66,7 @@ const net = require('node:net');
     fs.mkdirSync(extensions, { recursive: true });
     fs.symlinkSync(official, path.join(extensions, name));
     officialVersion = JSON.parse(fs.readFileSync(path.join(official, 'package.json'))).version;
-    const settings = { 'chatgpt.openOnStartup': false };
+    const settings = { ...userSettings, 'chatgpt.openOnStartup': false };
     if (!setupTest) {
       const runtime =
         '/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper (Plugin).app/Contents/MacOS/Code Helper (Plugin)';
@@ -90,7 +100,9 @@ const net = require('node:net');
         CODEX_HOME: path.join(dir, 'codex-home'),
       },
       launchArgs: [
-        setupTest ? project : workspace,
+        ...(process.env.ACTIVITY_EMPTY === '1'
+          ? []
+          : [setupTest || process.env.ACTIVITY_FOLDER === '1' ? project : workspace]),
         '--user-data-dir=' + path.join(dir, 'user'),
         '--extensions-dir=' + path.join(dir, 'extensions'),
         ...(debuggerPort

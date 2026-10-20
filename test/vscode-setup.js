@@ -46,26 +46,25 @@ async function run() {
   await new Promise((r) => socket.once('connect', r));
   socket.write(JSON.stringify({ token: registry.token, parent: api.host }) + '\n');
   const emit = (event) => socket.write(JSON.stringify({ event }) + '\n');
-  const colors = () =>
-    vscode.workspace.getConfiguration('workbench').inspect('colorCustomizations')?.workspaceValue;
+  const background = () => api.appearance().background;
   try {
     emit({ type: 'start', thread: 'folder', turn: 't' });
-    await waitFor(() => colors()?.['statusBar.background'] === '#245A91');
+    await waitFor(() => background() === 'codexActivity.processingBackground');
     const settingsFile = path.join(
       vscode.workspace.workspaceFolders[0].uri.fsPath,
       '.vscode/settings.json',
     );
-    const { parse } = require('jsonc-parser');
-    assert.equal(
-      parse(fs.readFileSync(settingsFile, 'utf8'))['workbench.colorCustomizations'][
-        'statusBar.background'
-      ],
-      '#245A91',
-    );
+    assert.equal(fs.existsSync(settingsFile), false, 'Activity never creates project settings');
     emit({ type: 'complete', thread: 'folder', turn: 't', status: 'completed' });
-    await waitFor(() => colors()?.['statusBar.background'] === '#625B78');
+    await waitFor(() => background() === 'codexActivity.finishedBackground');
     await vscode.commands.executeCommand('codexActivity.acknowledge');
-    await waitFor(() => !colors()?.['statusBar.background']);
+    await waitFor(() => !background());
+    await api.whenAppearanceSettled();
+    assert.equal(
+      fs.existsSync(settingsFile),
+      false,
+      'Temporary colors leave no empty settings file',
+    );
     fs.writeFileSync(
       path.join(dir, 'setup-result.json'),
       JSON.stringify(
@@ -79,7 +78,7 @@ async function run() {
           sameFolder: true,
           noWorkspaceReplacement: true,
           officialCodexConnected: true,
-          singleFolderColorAndRestoration: true,
+          singleFolderStatusItemWithoutSettings: true,
         },
         null,
         2,

@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { parse } = require('jsonc-parser');
+const { parse, modify, applyEdits } = require('jsonc-parser');
 const {
   palette,
   overlay,
@@ -162,6 +162,105 @@ test('single-folder recovery edits the existing settings root and preserves JSON
   const result = fs.readFileSync(file, 'utf8');
   assert.ok(result.startsWith('// keep'));
   assert.deepEqual(parse(result), { 'editor.fontSize': 15 });
+});
+function folderAppearance(t) {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'activity-folder-cleanup-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const file = path.join(dir, '.vscode', 'settings.json');
+  const journalPath = path.join(dir, 'recovery.json');
+  const current = () =>
+    fs.existsSync(file)
+      ? parse(fs.readFileSync(file, 'utf8'))['workbench.colorCustomizations']
+      : undefined;
+  const c = {
+    inspect: () => ({ workspaceValue: current() }),
+    get: current,
+    update: async (_, value) => {
+      const text = fs.existsSync(file) ? fs.readFileSync(file, 'utf8') : '{}';
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(
+        file,
+        applyEdits(text, modify(text, ['workbench.colorCustomizations'], value, {})),
+      );
+    },
+  };
+  const appearance = new Appearance(
+    { workspace: { getConfiguration: () => c }, ConfigurationTarget: { Workspace: 2 } },
+    file,
+    { container: 'folder', verifyDisk: true, journalPath },
+  );
+  return { appearance, file, journalPath };
+}
+test('idle leaves a clean folder alone; repeated highlights and disposal leave no settings artifacts', async (t) => {
+  const { appearance, file, journalPath } = folderAppearance(t);
+  await appearance.update('idle', {});
+  assert.equal(fs.existsSync(path.dirname(file)), false);
+  assert.equal(fs.existsSync(journalPath), false);
+  for (let cycle = 0; cycle < 2; cycle++) {
+    await appearance.update('processing', {});
+    await appearance.update('finished', {});
+    const journal = JSON.parse(fs.readFileSync(journalPath));
+    assert.equal(journal.createdSettingsFile, true);
+    assert.equal(journal.createdSettingsDirectory, true);
+    if (cycle === 0) await appearance.update('idle', {});
+    else await appearance.dispose();
+    assert.equal(fs.existsSync(file), false);
+    assert.equal(fs.existsSync(path.dirname(file)), false);
+    assert.equal(fs.existsSync(journalPath), false);
+  }
+});
+for (const recovery of ['live', 'crash']) {
+  for (const scenario of [
+    'new',
+    'existing file',
+    'existing directory',
+    'new sibling',
+    'user setting',
+    'user comment',
+  ]) {
+    test(`${recovery} restoration cleans only extension-created empty settings: ${scenario}`, async (t) => {
+      const { appearance, file, journalPath } = folderAppearance(t);
+      const directory = path.dirname(file),
+        sibling = path.join(directory, 'tasks.json');
+      if (scenario === 'existing file' || scenario === 'existing directory') {
+        fs.mkdirSync(directory);
+        if (scenario === 'existing file') fs.writeFileSync(file, '{}');
+      }
+      await appearance.update('processing', {});
+      await appearance.update('finished', {});
+      if (scenario === 'new sibling') fs.writeFileSync(sibling, '{}');
+      if (scenario === 'user setting') {
+        const text = fs.readFileSync(file, 'utf8');
+        fs.writeFileSync(file, applyEdits(text, modify(text, ['editor.fontSize'], 17, {})));
+      }
+      if (scenario === 'user comment') {
+        fs.writeFileSync(file, '// keep my comment\n' + fs.readFileSync(file, 'utf8'));
+      }
+      if (recovery === 'crash') restoreFile(file, journalPath);
+      else await appearance.update('idle', {});
+      const keptFile = ['existing file', 'user setting', 'user comment'].includes(scenario);
+      assert.equal(fs.existsSync(file), keptFile);
+      assert.equal(fs.existsSync(directory), scenario !== 'new');
+      assert.equal(fs.existsSync(journalPath), false);
+      if (keptFile) {
+        const text = fs.readFileSync(file, 'utf8');
+        assert.deepEqual(parse(text), scenario === 'user setting' ? { 'editor.fontSize': 17 } : {});
+        if (scenario === 'user comment') assert.ok(text.startsWith('// keep my comment'));
+      }
+      if (scenario === 'new sibling') assert.equal(fs.readFileSync(sibling, 'utf8'), '{}');
+    });
+  }
+}
+test('legacy recovery journals without file provenance preserve empty settings files', async (t) => {
+  const { appearance, file, journalPath } = folderAppearance(t);
+  await appearance.update('processing', {});
+  const journal = JSON.parse(fs.readFileSync(journalPath));
+  delete journal.createdSettingsFile;
+  delete journal.createdSettingsDirectory;
+  fs.writeFileSync(journalPath, JSON.stringify(journal));
+  await appearance.update('finished', {});
+  await appearance.dispose();
+  assert.deepEqual(parse(fs.readFileSync(file, 'utf8')), {});
 });
 test('a second window does not restore or replace another active window’s journal', async (t) => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'activity-owner-'));

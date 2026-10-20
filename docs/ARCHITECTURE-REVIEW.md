@@ -1,5 +1,8 @@
 # Appearance architecture review
 
+> Historical: this review describes the full-bar adapter superseded in 0.2.0.
+> Current behavior uses the [status-item presenter](STATUS-ITEM-INVESTIGATION.md).
+
 Date: 2026-10-18. Tested on macOS, VS Code 1.142.0.
 
 ## Decision
