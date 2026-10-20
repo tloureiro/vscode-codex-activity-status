@@ -6,9 +6,20 @@ const os = require('node:os');
 const path = require('node:path');
 const { Setup } = require('../src/setup');
 
-function fixture(t, { workspaceReady = true, installed = true, configured, enabled = true } = {}) {
+function fixture(
+  t,
+  {
+    workspaceReady = true,
+    installed = true,
+    configured,
+    enabled = true,
+    globalStorageExists = true,
+  } = {},
+) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'activity-setup-'));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const globalStorage = path.join(dir, 'global-storage');
+  if (globalStorageExists) fs.mkdirSync(globalStorage);
   const official = { extensionPath: path.join(dir, 'official') };
   const real = path.join(
     official.extensionPath,
@@ -34,7 +45,7 @@ function fixture(t, { workspaceReady = true, installed = true, configured, enabl
     },
   });
   const context = {
-    globalStorageUri: { fsPath: dir },
+    globalStorageUri: { fsPath: globalStorage },
     extensionPath: path.resolve(__dirname, '..'),
     globalState: memento(globalData),
     workspaceState: memento(workspaceData),
@@ -112,6 +123,12 @@ test('startup detects missing setup without silently changing profile settings',
   assert.equal(f.opens(), 0);
   await f.setup.prompt();
   assert.equal(f.prompts.length, 1, 'dismissed prompts do not nag');
+});
+test('first-time setup creates a missing global storage directory', async (t) => {
+  const f = fixture(t, { globalStorageExists: false });
+  assert.equal(fs.existsSync(f.context.globalStorageUri.fsPath), false);
+  assert.equal(await f.setup.ensureBridge(), true);
+  assert.ok(fs.statSync(f.configured()).mode & 0o111);
 });
 test('one setup action configures this window without opening another; repairs preserve the baseline', async (t) => {
   const f = fixture(t, { configured: null });

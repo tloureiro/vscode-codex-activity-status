@@ -122,6 +122,7 @@ class Setup {
         had: previous !== undefined && previous !== launcher,
       });
     }
+    fs.mkdirSync(path.dirname(launcher), { recursive: true });
     fs.writeFileSync(launcher, script, { mode: 0o700 });
     fs.chmodSync(launcher, 0o700);
     if (previous !== launcher)
