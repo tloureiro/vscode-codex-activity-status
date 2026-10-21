@@ -1,12 +1,11 @@
 .git/**
+.gitignore
 .vscode/**
 .vscode-test/**
 test/**
-prototype/**
 scripts/**
 dist/**
 coverage/**
-docs/evidence/**
 .github/**
 .editorconfig
 .prettier*

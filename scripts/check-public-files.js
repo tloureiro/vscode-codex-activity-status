@@ -21,6 +21,7 @@ const rules = [
 ];
 const problems = [];
 for (const file of files) {
+  if (!fs.existsSync(file)) continue;
   if (
     /^(?:node_modules|dist|coverage|\.vscode|\.vscode-test)\//.test(file) ||
     /(?:^|\/)\.env(?:$|\.(?!example$))/.test(file) ||

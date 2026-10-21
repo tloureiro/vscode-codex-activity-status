@@ -1,112 +1,44 @@
 'use strict';
 const vscode = require('vscode');
-const { ActivityState } = require('./state');
-const { StatusAppearance } = require('./status-appearance');
-const { LegacyRecovery } = require('./legacy-recovery');
-const { listen } = require('./bridge');
+const { CompletionEvents } = require('./completion-events');
+const { CompletionState } = require('./completion-state');
+const { Integration } = require('./integration');
 const { Setup } = require('./setup');
-const { appearanceTarget } = require('./color-lease');
-const { collect } = require('./diagnostics');
+const { StatusPresenter } = require('./status-presenter');
+
 let controller;
+
 function config() {
-  const c = vscode.workspace.getConfiguration('codexActivity');
+  const settings = vscode.workspace.getConfiguration('codexCompletion');
   return {
-    enabled: c.get('enabled', true),
-    autoAcknowledge: c.get('autoAcknowledge', true),
+    enabled: settings.get('enabled', true),
+    autoAcknowledge: settings.get('autoAcknowledge', true),
   };
 }
+
 async function activate(context) {
-  const output = vscode.window.createOutputChannel('Codex Window Activity');
+  const output = vscode.window.createOutputChannel('Codex Completion');
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1);
-  status.command = 'codexActivity.diagnostics';
-  status.name = 'Codex Window Activity';
+  status.name = 'Codex Completion';
   status.show();
   context.subscriptions.push(output, status);
-  const appearance = new StatusAppearance(vscode, status);
-  const activityTrace = [];
-  let lastSummary = '';
-  function trace(event, detail = {}) {
-    activityTrace.push({ at: new Date().toISOString(), event, ...detail });
-    if (activityTrace.length > 80) activityTrace.shift();
-  }
-  const state = new ActivityState();
+
+  const presenter = new StatusPresenter(vscode, status);
+  const state = new CompletionState();
   state.focused = vscode.window.state.focused;
-  let bridge,
-    recovery,
-    setup,
-    promptTimer,
-    error = '',
-    disposed = false;
-  const target = appearanceTarget(vscode);
-  const workspace =
-    vscode.workspace.workspaceFile?.fsPath ||
-    vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ||
-    '';
-  function render() {
-    if (disposed) return;
-    const c = config();
-    state.autoAcknowledge = c.autoAcknowledge;
-    const s = state.summary();
-    const summaryKey = JSON.stringify(s);
-    if (summaryKey !== lastSummary) {
-      trace('state', { focused: state.focused, ...s });
-      lastSummary = summaryKey;
-    }
-    const health = setup?.status();
-    appearance.update(
-      s.state,
-      health && health.code !== 'ready'
-        ? health.label
-        : `Codex: ${s.state === 'approval' ? 'Needs input' : s.state}`,
-      c.enabled,
-    );
-    status.command =
-      health?.code === 'ready'
-        ? s.state === 'finished'
-          ? 'codexActivity.acknowledge'
-          : 'codexActivity.diagnostics'
-        : 'codexActivity.setup';
-    status.tooltip = `${health?.detail || error || 'Checking activity setup'}\n${s.processing} working · ${s.waiting} waiting · ${s.unread} unread · ${s.connected} connections\n${s.problems.join(', ')}\n${health?.code === 'ready' ? (s.state === 'finished' ? 'Click to acknowledge this completion and restore normal colors.' : 'Click for diagnostics; use Acknowledge Completion to clear unread completions.') : 'Click to complete setup or resolve the connection.'}`;
-    for (const detail of [appearance.snapshot().limitation, recovery?.detail])
-      if (detail) status.tooltip += '\n' + detail;
+  const integration = new Integration(vscode, context);
+  const trace = [];
+  let setup;
+  let events;
+  let promptTimer;
+  let disposed = false;
+  let error = '';
+
+  function record(event, detail = {}) {
+    trace.push({ at: new Date().toISOString(), event, ...detail });
+    if (trace.length > 50) trace.shift();
   }
-  async function installBridge() {
-    const changed = await setup.ensureBridge();
-    const action = await vscode.window.showInformationMessage(
-      changed
-        ? 'Activity bridge configured. Complete setup to connect this window.'
-        : 'Activity bridge is up to date.',
-      'Complete Setup',
-    );
-    if (action === 'Complete Setup') await setup.run();
-  }
-  async function removeBridge() {
-    await vscode.workspace
-      .getConfiguration('codexActivity')
-      .update(
-        'enabled',
-        false,
-        target ? vscode.ConfigurationTarget.Workspace : vscode.ConfigurationTarget.Global,
-      );
-    state.clear();
-    appearance.update('idle', 'Codex: Off', false);
-    const saved = context.globalState.get('bridge');
-    if (saved) {
-      const c = vscode.workspace.getConfiguration('chatgpt');
-      if (c.inspect('cliExecutable')?.globalValue === saved.launcher)
-        await c.update(
-          'cliExecutable',
-          saved.had ? saved.previous : undefined,
-          vscode.ConfigurationTarget.Global,
-        );
-      await context.globalState.update('bridge', undefined);
-      // Keep launcher until Codex has restarted; it continues to pass through.
-    }
-    vscode.window.showInformationMessage(
-      'Bridge setting and this window’s appearance restored. Reload other windows before uninstalling.',
-    );
-    render();
-  }
+
   function snapshot() {
     return {
       at: new Date().toISOString(),
@@ -114,189 +46,178 @@ async function activate(context) {
       extensionVersion: context.extension.packageJSON.version,
       platform: process.platform,
       remote: vscode.env.remoteName || null,
-      host: process.pid,
-      app: process.ppid,
-      windowState: { focused: vscode.window.state.focused, active: vscode.window.state.active },
-      appearanceTarget: target,
-      appearance: appearance.snapshot(),
-      legacyRecovery: recovery?.detail || null,
       enabled: config().enabled,
-      bridge: !!bridge,
-      workspace,
       setup: setup.status(),
       summary: state.summary(),
-      recentEvents: activityTrace,
+      presentation: presenter.snapshot(),
+      recentEvents: trace,
       error,
     };
   }
+
   function diagnostics() {
     output.appendLine(JSON.stringify(snapshot(), null, 2));
     output.show(true);
   }
+
+  function render() {
+    if (disposed) return;
+    const settings = config();
+    state.autoAcknowledge = settings.autoAcknowledge;
+    const summary = state.summary();
+    const health = setup.status();
+    const ready = health.code === 'ready';
+    const finished = ready && summary.state === 'finished';
+    const label = finished ? 'Codex: finished' : ready ? 'Codex completion: Ready' : health.label;
+    presenter.update(finished, label, settings.enabled);
+    status.command = finished
+      ? 'codexCompletion.acknowledge'
+      : ready
+        ? 'codexCompletion.diagnostics'
+        : 'codexCompletion.setup';
+    status.tooltip = finished
+      ? `${summary.unread} unread Codex completion${summary.unread === 1 ? '' : 's'}. Click to acknowledge.`
+      : health.detail;
+  }
+
   setup = new Setup(vscode, context, {
     enabled: () => config().enabled,
-    connected: () => state.summary().connected > 0,
-    error: () => error,
-    diagnostics,
+    enable: () =>
+      vscode.workspace
+        .getConfiguration('codexCompletion')
+        .update('enabled', true, vscode.ConfigurationTarget.Global),
+    integration,
     changed: render,
   });
+
   const command = (id, fn) =>
     context.subscriptions.push(
       vscode.commands.registerCommand(id, async () => {
         try {
           return await fn();
-        } catch (e) {
-          output.appendLine(e.stack || e.message);
-          vscode.window.showErrorMessage('Codex Activity: ' + e.message);
+        } catch (caught) {
+          error = caught.message;
+          output.appendLine(caught.stack || caught.message);
+          vscode.window.showErrorMessage(`Codex Completion: ${caught.message}`);
+          render();
         }
       }),
     );
-  command('codexActivity.setup', () => setup.run());
-  command('codexActivity.installBridge', installBridge);
-  command('codexActivity.removeBridge', removeBridge);
-  command('codexActivity.acknowledge', () => {
-    trace('acknowledgeCommand');
+
+  async function removeIntegration() {
+    const removed = await integration.remove();
+    await vscode.workspace
+      .getConfiguration('codexCompletion')
+      .update('enabled', false, vscode.ConfigurationTarget.Global);
     state.acknowledge();
     render();
+    const legacy = [
+      removed.proxy ? 'the old executable proxy' : '',
+      removed.hooks.length
+        ? `${removed.hooks.length} legacy hook${removed.hooks.length === 1 ? '' : 's'}`
+        : '',
+    ].filter(Boolean);
+    vscode.window.showInformationMessage(
+      `Codex completion integration removed${legacy.length ? `, including ${legacy.join(' and ')}` : ''}. Restart the current Codex chat to reload its configuration.`,
+    );
+  }
+
+  async function cleanupLegacy() {
+    const removed = await integration.cleanupLegacy();
+    setup.refresh();
+    render();
+    const legacy = [
+      removed.proxy ? 'the old executable proxy' : '',
+      removed.hooks.length
+        ? `${removed.hooks.length} legacy hook${removed.hooks.length === 1 ? '' : 's'}`
+        : '',
+    ].filter(Boolean);
+    vscode.window.showInformationMessage(
+      legacy.length
+        ? `Removed ${legacy.join(' and ')}.`
+        : 'No legacy Codex Activity proxy or hooks were found.',
+    );
+  }
+
+  command('codexCompletion.setup', () => setup.run());
+  command('codexCompletion.cleanupLegacy', cleanupLegacy);
+  command('codexCompletion.removeIntegration', removeIntegration);
+  command('codexCompletion.acknowledge', () => {
+    state.acknowledge();
+    record('acknowledged', { reason: 'command' });
+    render();
   });
-  command('codexActivity.diagnostics', diagnostics);
+  command('codexCompletion.diagnostics', diagnostics);
+
   context.subscriptions.push(
-    vscode.window.onDidChangeWindowState((e) => {
-      const unreadBefore = state.summary().unread;
-      trace('windowFocus', {
-        focused: e.focused,
-        active: e.active,
-        previousFocused: state.focused,
-        unreadBefore,
-      });
-      state.autoAcknowledge = config().autoAcknowledge;
-      state.focus(e.focused);
-      if (state.summary().unread < unreadBefore) {
-        trace('acknowledged', { reason: 'windowFocus', unreadBefore });
-        // Capture the peer perspective at the problematic transition, rather than
-        // requiring the user to collect another window's output at that moment.
-        collect()
-          .then((windows) => {
-            if (!disposed)
-              trace('peerFocusAtAcknowledgement', {
-                windows: windows
-                  .filter((w) => w.host !== process.pid)
-                  .map((w) => ({
-                    host: w.host,
-                    app: w.app,
-                    windowState: w.windowState,
-                    at: w.at,
-                    error: w.error,
-                  })),
-              });
-          })
-          .catch((e) => {
-            if (!disposed) trace('peerFocusProbeError', { error: e.message });
-          });
-      }
-      render();
-      // Update the indicator before checking the launcher on disk.
-      if (e.focused) {
-        setup.refresh();
-        render();
-      }
-    }),
-  );
-  context.subscriptions.push(
-    vscode.window.onDidChangeTextEditorSelection((e) => {
-      if (state.summary().unread)
-        trace('editorInteraction', { kind: e.kind, focused: state.focused });
-      state.interaction(e.kind);
+    vscode.window.onDidChangeWindowState((windowState) => {
+      const before = state.summary().unread;
+      state.focus(windowState.focused);
+      if (before && !state.summary().unread) record('acknowledged', { reason: 'focus' });
+      if (windowState.focused) setup.refresh();
       render();
     }),
-  );
-  context.subscriptions.push(
-    vscode.workspace.onDidChangeConfiguration((e) => {
-      if (e.affectsConfiguration('chatgpt.cliExecutable')) {
-        setup.refresh();
-        render();
-      } else if (e.affectsConfiguration('codexActivity')) {
-        if (e.affectsConfiguration('codexActivity.enabled')) {
-          if (!config().enabled) state.clear();
-          bridge?.reset();
-        }
-        render();
-      } else if (e.affectsConfiguration('workbench.colorCustomizations')) {
-        recovery?.retry();
+    vscode.window.onDidChangeTextEditorSelection((event) => {
+      const before = state.summary().unread;
+      state.interaction(event.kind);
+      if (before && !state.summary().unread) record('acknowledged', { reason: 'editor' });
+      render();
+    }),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration('codexCompletion')) {
+        if (!config().enabled) state.acknowledge();
         render();
       }
     }),
-  );
-  context.subscriptions.push(vscode.window.onDidChangeActiveColorTheme(render));
-  context.subscriptions.push(
     vscode.extensions.onDidChange(() => {
       setup.refresh();
       render();
     }),
   );
-  if (process.platform !== 'darwin' || vscode.env.remoteName)
-    error = 'Unsupported environment: use local macOS desktop VS Code.';
-  else {
-    recovery = new LegacyRecovery(vscode, target, render);
-    await recovery.start();
+
+  if (process.platform === 'darwin' && !vscode.env.remoteName) {
     try {
-      bridge = await listen(
-        (source) => {
-          if (config().enabled) state.connect(source);
-          render();
-        },
-        (source, event) => {
-          if (event.type === 'complete')
-            trace('completionReceived', { focused: state.focused, outcome: event.status });
-          if (config().enabled) {
-            if (!state.sources.has(source)) state.connect(source);
-            state.apply(source, event);
-          }
-          render();
-        },
-        (source) => {
-          state.disconnect(source);
-          render();
-        },
-        undefined,
-        { diagnostics: snapshot },
-      );
-    } catch (e) {
-      error = e.message;
-      output.appendLine(e.stack || error);
+      events = new CompletionEvents(vscode, (event) => {
+        if (!config().enabled) return;
+        state.complete(event);
+        record('completion', { cwd: event.cwd, thread: event.thread, turn: event.turn });
+        render();
+      }).start();
+    } catch (caught) {
+      error = caught.message;
+      output.appendLine(caught.stack || caught.message);
     }
   }
+
   controller = {
     async dispose() {
       disposed = true;
       clearTimeout(promptTimer);
-      bridge?.dispose();
-      appearance.dispose();
-      await recovery?.dispose();
+      events?.dispose();
+      presenter.dispose();
     },
   };
+
   render();
-  // Give an already-configured app-server time to connect before offering help.
-  const promptDelay = setup.status().code === 'waiting' ? 8000 : 1200;
   promptTimer = setTimeout(() => {
     if (!disposed)
-      setup.prompt().catch((e) => {
-        output.appendLine(e.stack || e.message);
-        vscode.window.showErrorMessage('Codex Activity setup: ' + e.message);
+      setup.prompt().catch((caught) => {
+        error = caught.message;
+        output.appendLine(caught.stack || caught.message);
       });
-  }, promptDelay);
-  // A small diagnostics API, also used by the real extension-host smoke test.
+  }, 1200);
+
   return {
     setupStatus: () => setup.status(),
     summary: () => state.summary(),
-    workspaceReady: !!target,
     host: process.pid,
     statusAction: () => status.command,
-    whenAppearanceSettled: () => recovery?.queue,
-    appearance: () => appearance.snapshot(),
+    presentation: () => presenter.snapshot(),
   };
 }
+
 async function deactivate() {
   if (controller) await controller.dispose();
 }
+
 module.exports = { activate, deactivate };
