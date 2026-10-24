@@ -1,11 +1,13 @@
 'use strict';
 const fs = require('node:fs');
 const { execFileSync } = require('node:child_process');
+const path = require('node:path');
+const os = require('node:os');
 
 // Include untracked files so an initial commit receives the same checks.
 // Report locations only, never the value of a possible credential.
 const files = execFileSync(
-  process.env.GIT_READ_ONLY_BIN || 'git',
+  process.env.GIT_READ_ONLY_BIN || path.join(os.homedir(), 'sync', 'scripts', 'git-safe'),
   ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
   { encoding: 'utf8' },
 )
@@ -23,7 +25,7 @@ const problems = [];
 for (const file of files) {
   if (!fs.existsSync(file)) continue;
   if (
-    /^(?:node_modules|dist|coverage|\.vscode|\.vscode-test)\//.test(file) ||
+    /^(?:sources|node_modules|dist|coverage|\.vscode|\.vscode-test)\//.test(file) ||
     /(?:^|\/)\.env(?:$|\.(?!example$))/.test(file) ||
     /\.(?:vsix|log)$/.test(file)
   ) {

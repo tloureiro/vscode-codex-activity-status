@@ -1,4 +1,7 @@
 node_modules/
+/sources/
+/.codex/hooks.json
+/.codex/codex-activity/
 .vscode-test/
 .vscode/
 dist/

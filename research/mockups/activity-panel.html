@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Codex activity panel concept</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #eeedf2;
+        color: #282834;
+        font:
+          14px -apple-system,
+          BlinkMacSystemFont,
+          sans-serif;
+      }
+      main {
+        width: 1120px;
+        margin: 34px auto;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 22px;
+      }
+      h1 {
+        font-size: 24px;
+        letter-spacing: -0.6px;
+        font-weight: 650;
+        margin: 0 0 6px;
+      }
+      .sub {
+        color: #696979;
+        font-size: 13px;
+      }
+      .controls {
+        display: flex;
+        gap: 7px;
+      }
+      button {
+        border: 1px solid #d2d0db;
+        border-radius: 18px;
+        padding: 8px 13px;
+        background: white;
+        color: #41414f;
+        cursor: pointer;
+        font: inherit;
+        font-size: 12px;
+      }
+      button.active {
+        border-color: #6a6a80;
+        box-shadow: 0 0 0 1px #6a6a80;
+      }
+      .label {
+        margin: 0 0 10px;
+        text-transform: uppercase;
+        font-size: 10px;
+        font-weight: 650;
+        letter-spacing: 1.5px;
+        color: #757584;
+      }
+      .window {
+        width: 1120px;
+        height: 570px;
+        background: #1f1f1f;
+        border: 1px solid #45454c;
+        border-radius: 10px;
+        overflow: hidden;
+        color: #d5d5da;
+        box-shadow: 0 9px 30px #15102424;
+      }
+      .titlebar {
+        height: 34px;
+        background: #2d2d31;
+        border-bottom: 1px solid #19191d;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        color: #c4c4ca;
+        position: relative;
+      }
+      .traffic {
+        position: absolute;
+        left: 13px;
+        display: flex;
+        gap: 7px;
+      }
+      .traffic i {
+        display: block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #ff5f57;
+      }
+      .traffic i:nth-child(2) {
+        background: #febc2e;
+      }
+      .traffic i:nth-child(3) {
+        background: #28c840;
+      }
+      .workspace {
+        display: flex;
+        height: 516px;
+      }
+      .rail {
+        width: 44px;
+        flex: 0 0 auto;
+        background: #18181b;
+        border-right: 1px solid #303036;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 25px;
+        padding-top: 17px;
+        font-size: 21px;
+        color: #8c8c98;
+      }
+      .rail .selected {
+        color: white;
+      }
+      .editor {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .tabs {
+        height: 34px;
+        background: #18181c;
+        display: flex;
+        flex: 0 0 auto;
+      }
+      .tab {
+        padding: 10px 17px;
+        font-size: 11px;
+        color: #92929e;
+        border-right: 1px solid #303036;
+      }
+      .tab.current {
+        color: #dedee3;
+        background: #1f1f1f;
+        border-top: 1px solid #4287ed;
+      }
+      .tab b {
+        color: #d6bd7c;
+        font-weight: normal;
+        margin-right: 7px;
+      }
+      .crumbs {
+        height: 28px;
+        padding: 8px 20px;
+        font-size: 10px;
+        color: #92929b;
+      }
+      .code {
+        flex: 1;
+        overflow: hidden;
+        padding: 9px 24px 0 0;
+        font:
+          12px/23px 'SFMono-Regular',
+          Menlo,
+          monospace;
+      }
+      .line {
+        display: flex;
+        white-space: pre;
+      }
+      .num {
+        color: #72727d;
+        min-width: 52px;
+        text-align: right;
+        padding-right: 20px;
+        user-select: none;
+      }
+      .kw {
+        color: #bf89ce;
+      }
+      .fn {
+        color: #dcc78f;
+      }
+      .str {
+        color: #d39b7e;
+      }
+      .typ {
+        color: #75c7b1;
+      }
+      .comment {
+        color: #7f9a76;
+      }
+      .panel-tabs {
+        height: 29px;
+        flex: 0 0 auto;
+        display: flex;
+        gap: 22px;
+        align-items: center;
+        padding: 0 16px;
+        background: #202024;
+        border-top: 1px solid #3b3b42;
+        font-size: 9px;
+        color: #94949f;
+        letter-spacing: 0.3px;
+      }
+      .panel-tabs .chosen {
+        color: #f4f4f8;
+        height: 29px;
+        display: flex;
+        align-items: center;
+        border-bottom: 1px solid #dedee9;
+      }
+      .signal {
+        height: 100px;
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        padding: 0 28px;
+        gap: 19px;
+        background: var(--signal);
+        color: var(--ink);
+      }
+      .symbol {
+        width: 48px;
+        height: 48px;
+        display: grid;
+        place-items: center;
+        font-size: 32px;
+        font-weight: 550;
+        flex: 0 0 auto;
+      }
+      .working .symbol {
+        border: 5px solid #ffffff66;
+        border-top-color: white;
+        border-right-color: white;
+        border-radius: 50%;
+      }
+      .attention .symbol {
+        border: 3px solid currentColor;
+        border-radius: 11px;
+        font-size: 32px;
+      }
+      .finished .symbol {
+        border: 3px solid currentColor;
+        border-radius: 50%;
+        font-size: 32px;
+      }
+      .state {
+        font-size: 25px;
+        letter-spacing: -0.6px;
+        font-weight: 650;
+        margin-bottom: 5px;
+      }
+      .task {
+        font-size: 12px;
+        opacity: 0.85;
+      }
+      .signal .project {
+        margin-left: auto;
+        font-size: 11px;
+        opacity: 0.85;
+      }
+      .codex {
+        width: 280px;
+        flex: 0 0 auto;
+        border-left: 1px solid #3b3b42;
+        background: #18181c;
+        padding: 15px 18px;
+        display: flex;
+        flex-direction: column;
+      }
+      .codex-title {
+        font-size: 11px;
+        margin-bottom: 32px;
+        color: #e0e0e6;
+        display: flex;
+        justify-content: space-between;
+      }
+      .user-bubble {
+        background: #303035;
+        border-radius: 9px;
+        padding: 12px;
+        color: #d1d1d8;
+        font-size: 11px;
+        line-height: 1.55;
+        margin-bottom: 24px;
+      }
+      .assistant {
+        font-size: 11px;
+        line-height: 1.8;
+        color: #bcbcc5;
+      }
+      .assistant strong {
+        color: #e5e5ec;
+        font-weight: 550;
+      }
+      .tool {
+        margin-top: 18px;
+        border: 1px solid #393940;
+        border-radius: 6px;
+        padding: 9px 11px;
+        font-size: 10px;
+        color: #a8a8b4;
+      }
+      .composer {
+        margin-top: auto;
+        border: 1px solid #414149;
+        border-radius: 10px;
+        padding: 13px;
+        color: #797984;
+        font-size: 10px;
+        height: 75px;
+      }
+      .composer span {
+        display: block;
+        margin-top: 21px;
+        font-size: 9px;
+      }
+      .statusbar {
+        height: 20px;
+        border-top: 1px solid #34343b;
+        background: #18181c;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 12px;
+        color: #afafbb;
+        font-size: 9px;
+      }
+      .mission {
+        margin-top: 30px;
+      }
+      .overview {
+        height: 246px;
+        border-radius: 13px;
+        background: linear-gradient(125deg, #333e60, #65576c 60%, #a17b76);
+        padding: 15px 17px 12px;
+      }
+      .overview-title {
+        color: #ffffffba;
+        font-size: 10px;
+        text-align: center;
+        margin-bottom: 14px;
+      }
+      .thumbnails {
+        display: flex;
+        gap: 20px;
+      }
+      .thumb {
+        width: 348px;
+      }
+      .mini {
+        width: 348px;
+        height: 178px;
+        position: relative;
+      }
+      .mini .window {
+        transform: scale(0.31);
+        transform-origin: top left;
+        pointer-events: none;
+        border-radius: 9px;
+      }
+      .caption {
+        color: #fff;
+        font-size: 10px;
+        text-align: center;
+        margin-top: 8px;
+        text-shadow: 0 1px 3px #0006;
+      }
+      footer {
+        color: #777785;
+        font-size: 11px;
+        display: flex;
+        justify-content: space-between;
+        margin-top: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>A signal you can spot at a glance.</h1>
+          <div class="sub">Concept preview · an extension-owned activity panel</div>
+        </div>
+        <div class="controls">
+          <button class="active" data-state="working">Working</button
+          ><button data-state="attention">Attention</button
+          ><button data-state="finished">Finished</button>
+        </div>
+      </header>
+      <p class="label">Normal window</p>
+      <div id="hero"></div>
+      <section class="mission">
+        <p class="label">Mission Control · illustrative thumbnail size</p>
+        <div class="overview">
+          <div class="overview-title">Desktop 1</div>
+          <div class="thumbnails" id="thumbs"></div>
+        </div>
+      </section>
+      <footer>
+        <span
+          >100 px color panel + a large state symbol. Shown beneath the editor; Codex stays
+          alongside it.</span
+        ><span>Mockup — not a captured VS Code session</span>
+      </footer>
+    </main>
+    <script>
+      const states = {
+        working: {
+          color: '#2864e8',
+          ink: '#fff',
+          symbol: '',
+          name: 'Working',
+          task: 'Updating checkout validation',
+          project: 'checkout-api',
+        },
+        attention: {
+          color: '#edb537',
+          ink: '#27200f',
+          symbol: '!',
+          name: 'Attention requested',
+          task: 'Review the latest request in Codex',
+          project: 'web-client',
+        },
+        finished: {
+          color: '#8453d6',
+          ink: '#fff',
+          symbol: '✓',
+          name: 'Finished',
+          task: 'Ready for your review',
+          project: 'design-system',
+        },
+      };
+      const code = [
+        '<span class="kw">import</span> { <span class="typ">Checkout</span> } <span class="kw">from</span> <span class="str">\'./types\'</span>;',
+        '',
+        '<span class="kw">export function</span> <span class="fn">validateCheckout</span>(checkout: <span class="typ">Checkout</span>) {',
+        '  <span class="kw">const</span> errors: <span class="typ">string</span>[] = [];',
+        '',
+        '  <span class="kw">if</span> (!checkout.items.length) {',
+        '    errors.<span class="fn">push</span>(<span class="str">\'Add an item to continue.\'</span>);',
+        '  }',
+        '',
+        '  <span class="kw">return</span> { valid: errors.length === <span class="typ">0</span>, errors };',
+        '}',
+        '',
+        '<span class="comment">// Keep validation close to the checkout flow.</span>',
+      ];
+      function makeWindow(key) {
+        const s = states[key];
+        return `<div class="window ${key}" style="--signal:${s.color};--ink:${s.ink}">
+          <div class="titlebar"><div class="traffic"><i></i><i></i><i></i></div>${s.project} — Visual Studio Code</div>
+          <div class="workspace"><div class="rail"><span class="selected">▱</span><span>⌕</span><span>⑂</span><span>▷</span><span>⊞</span></div>
+            <div class="editor"><div class="tabs"><div class="tab current"><b>TS</b> checkout.ts &nbsp; ×</div><div class="tab"><b>TS</b> checkout.test.ts</div></div><div class="crumbs">src &nbsp; › &nbsp; checkout &nbsp; › &nbsp; checkout.ts</div>
+            <div class="code">${code.map((line, i) => `<div class="line"><span class="num">${i + 1}</span><span>${line || ' '}</span></div>`).join('')}</div>
+            <div class="panel-tabs"><span class="chosen">CODEX ACTIVITY</span><span>PROBLEMS</span><span>OUTPUT</span><span>TERMINAL</span></div>
+            <div class="signal"><div class="symbol">${s.symbol}</div><div><div class="state">${s.name}</div><div class="task">${s.task}</div></div><div class="project">${s.project}</div></div></div>
+            <aside class="codex"><div class="codex-title"><span>CODEX</span><span>＋ &nbsp; ···</span></div><div class="user-bubble">Check the checkout validation and update the related tests.</div><div class="assistant"><strong>Reviewing the checkout flow</strong><br>I'll check the existing validation and the tests around empty carts.</div><div class="tool">⌕ &nbsp; Read checkout.ts</div><div class="composer">Ask a follow-up<span>＋ &nbsp; Local &nbsp; · &nbsp; Auto</span></div></aside>
+          </div><div class="statusbar"><span>⑂ main &nbsp; ↻ &nbsp;&nbsp; ⓧ 0 &nbsp; ⚠ 0</span><span>Ln 12, Col 1 &nbsp; Spaces: 2 &nbsp; UTF-8 &nbsp; TypeScript &nbsp; ✓</span></div></div>`;
+      }
+      document.getElementById('hero').innerHTML = makeWindow('working');
+      document.getElementById('thumbs').innerHTML = Object.keys(states)
+        .map(
+          (key) =>
+            `<div class="thumb"><div class="mini">${makeWindow(key)}</div><div class="caption">${states[key].project}</div></div>`,
+        )
+        .join('');
+      document.querySelectorAll('button').forEach((button) =>
+        button.addEventListener('click', () => {
+          document.getElementById('hero').innerHTML = makeWindow(button.dataset.state);
+          document
+            .querySelectorAll('button')
+            .forEach((item) => item.classList.toggle('active', item === button));
+        }),
+      );
+    </script>
+  </body>
+</html>

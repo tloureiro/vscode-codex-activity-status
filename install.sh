@@ -57,4 +57,4 @@ fi
 "$completion_code_bin" --install-extension "$completion_vsix" --force "$@"
 
 printf '\nInstalled the current source. Run Developer: Reload Window in VS Code.\n'
-printf 'Run Codex Completion: Set Up, then restart the current Codex chat.\n'
+printf 'Run Codex Activity: Install or Update Project Hooks. Review hook trust in Codex, then start a new chat.\n'

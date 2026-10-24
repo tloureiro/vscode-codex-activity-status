@@ -1,4 +1,6 @@
 .git/**
+sources/**
+research/**
 .gitignore
 .vscode/**
 .vscode-test/**

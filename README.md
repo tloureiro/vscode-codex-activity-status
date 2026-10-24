@@ -1,60 +1,110 @@
-# Codex Completion
+# Codex Activity
 
-A small completion-only indicator for the official Codex extension in VS Code.
+A colored strip in the existing status bar for the official Codex extension in
+local macOS VS Code. It uses solid block characters and foreground color in this
+extension's own item, with no extra editor-height cost. It does not recolor chrome
+backgrounds, write theme settings, patch VS Code, or intercept Codex's execution.
 
-When a Codex turn finishes for the current workspace, the status bar shows **Codex: finished** until you return to the window, interact with a text editor, or click the item. It does not attempt to show processing or approval state.
+- **Blue — Working:** a prompt or tool activity signal was observed.
+- **Amber — Attention requested:** an approval or question signal was observed.
+- **Purple — Finished:** an existing session record confirmed turn completion.
+- Failed, interrupted, stale and unconfirmed outcomes have separate presentations.
 
-## Why this version is less intrusive
+The strip shows during activity, attention requests and unread completions; other
+states use a compact text item. Click the purple strip to acknowledge. Choose a project or one
+observed conversation, or aggregate all conversations in that project.
 
-Version 0.3 uses supported configuration and public APIs:
-
-- Codex's documented top-level `notify` setting supplies `agent-turn-complete` events.
-- A tiny local notifier forwards only event type, thread ID, turn ID, working directory, and timestamp. Prompt and response text are discarded.
-- VS Code's public status-item API renders the result. VS Code itself is never patched.
-- The official Codex extension's executable and private state are not intercepted or inspected.
-
-This tradeoff is intentional: Codex does not currently expose another extension's live processing/approval state through a public VS Code API. Completion is the reliable supported signal available today.
-
-## Install and set up
+## Install and enable a project
 
 ```sh
 ./install.sh
 ```
 
-Then reload VS Code and run **Codex Completion: Set Up**. Setup adds one clearly marked block to the user-level `~/.codex/config.toml` and copies a small notifier into this extension's VS Code global storage. Restart the current Codex chat after setup so it reloads the configuration.
+Reload VS Code, then run **Codex Activity: Install or Update Project Hooks**.
+The confirmation explains the exact project files being added. Setup requires
+an independently installed Node.js 18+ runtime; it detects common locations or
+uses `codexActivity.nodePath`.
 
-If Codex already has a custom top-level `notify` command, the extension leaves it untouched and reports a conflict.
+Setup creates `.codex/hooks.json` and a standalone helper under
+`.codex/codex-activity/`, adding rules to `.codex/.gitignore` so the new hook file
+and helper stay local. No Git commands or Git metadata edits are involved. An
+existing hook file is left untouched: this first version refuses to overwrite or
+merge unrelated hooks. Ignore rules cannot untrack already tracked files.
 
-## Migrating from an older release
+**Review and trust the new hooks in Codex**, using its hook review UI or `/hooks`
+in its CLI, then start a new chat. Installation does not bypass trust or modify
+your Codex user configuration. Codex manages trust separately and may write its
+own trust records there. Both project trust and hook trust are required.
 
-Setup detects the former integration and can migrate it in one action. Migration:
+No extra panel needs to stay open. Keep VS Code's existing status bar visible;
+`codexActivity.beaconWidth` adjusts the strip width (24 block characters by
+default). It uses status-bar width without reducing editor height. Mission Control
+visibility still depends on thumbnail scale: the existing bar's fixed height may
+become thin when many windows are shown.
 
-- restores the previous global `chatgpt.cliExecutable` value when it still points at this extension's proxy;
-- deletes that proxy from this extension's global storage;
-- removes only recognized legacy Codex Activity hook commands;
-- preserves unrelated hooks and configuration; and
-- installs the completion notifier.
+**Codex Activity: Show Panel** opens the optional large detail panel on request.
+It starts hidden and is never opened by setup or incoming events. The status-bar
+strip continues working while that panel is closed.
 
-You can perform cleanup without enabling the new integration with **Codex Completion: Remove Legacy Hooks and Proxy**.
+## Independence and limitations
 
-To undo everything owned by this release, run **Codex Completion: Remove Integration**. It removes the marked `notify` block and helper files, cleans recognized older integration artifacts, and disables monitoring. Restart the current Codex chat afterward.
+Seven short asynchronous hooks write only event/session/turn/project/tool
+metadata into private local storage while a receiver is active. The helper
+returns no decisions or model context. It does not connect to VS Code, run an
+app-server, install a service, change the Codex executable, or inspect private
+extension objects. A missing receiver/helper or hung observer did not prevent
+Codex turns from completing in disposable-profile tests.
+
+Signals can arrive late, out of order, or be lost. Blue does not guarantee active
+processing; amber does not prove a human is still needed. A stop hook alone does
+not mean success: completion is confirmed by a bounded read of the matching
+existing Codex session file. Missing/unsupported records stay unconfirmed. After
+two minutes without fresh activity, an unfinished turn becomes unknown.
+
+Routing is **project/thread based**. Two windows opening the same project can
+show the same conversations. There is no claim of automatic exclusive window
+ownership. Use **Choose Project or Conversation** to select the displayed scope.
+
+## Removal and upgrades
+
+**Codex Activity: Remove Project Hooks** confirms removal of unchanged files owned
+by this extension. Edited/unrelated files are preserved; ignore rules and Codex
+trust records remain. Restart the Codex chat after installation/removal. Helper
+updates also require an explicit action; edited installations are not repaired
+silently.
+
+Version 0.4 does not install the old completion-only `notify` integration and
+does not automatically clean up previous configuration. If upgrading from 0.3,
+the old notifier may remain until you explicitly run **Codex Activity: Remove
+Legacy Completion Integration**. The legacy proxy/hooks cleanup command also
+remains available behind confirmation.
 
 ## Settings
 
-| Setting                           | Default | Behavior                                                            |
-| --------------------------------- | ------- | ------------------------------------------------------------------- |
-| `codexCompletion.enabled`         | `true`  | Show completion notifications in this window                        |
-| `codexCompletion.autoAcknowledge` | `true`  | Clear the indicator on focus return or supported editor interaction |
+| Setting                         | Default | Behavior                                                             |
+| ------------------------------- | ------- | -------------------------------------------------------------------- |
+| `codexActivity.enabled`         | `true`  | Listen only in projects with an installed integration                |
+| `codexActivity.autoAcknowledge` | `false` | Optionally clear unread outcomes when returning to this window       |
+| `codexActivity.nodePath`        | empty   | Detect Node, or choose an absolute standalone runtime path for setup |
+| `codexActivity.beaconWidth`     | `24`    | Strip width in solid block characters (8–48)                         |
 
-Initial support is local macOS desktop VS Code. Completion files live in a private per-user temporary directory and expire after ten minutes. A completion is routed to a window when its Codex working directory overlaps that window's local workspace folders. With no folder open, only the focused window accepts the event.
+Disabling monitoring removes this window's receiver immediately. Other windows
+can continue observing the same project. Hooks return without publishing events
+once no live receiver remains. No background monitoring daemon is installed.
 
 ## Development
 
 ```sh
 npm ci
 npm run validate
+npm run sources:update
 npm run test:vscode
 npm run package
 ```
 
-See [integration details](docs/INTEGRATION.md) and [validation](docs/VALIDATION.md).
+The live test uses installed applications in a disposable profile, a localhost
+fake model and an OS sandbox. It needs permission to open that profile and listen
+on localhost. It makes no real model requests and changes no normal configuration.
+
+See [integration](docs/INTEGRATION.md), [validation](docs/VALIDATION.md),
+[source references](docs/SOURCES.md), and [hook feasibility](docs/HOOK-FEASIBILITY.md).

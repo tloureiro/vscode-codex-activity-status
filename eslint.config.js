@@ -3,7 +3,16 @@ const js = require('@eslint/js');
 const globals = require('globals');
 
 module.exports = [
-  { ignores: ['node_modules/**', '.vscode/**', '.vscode-test/**', 'dist/**', 'coverage/**'] },
+  {
+    ignores: [
+      'node_modules/**',
+      'sources/**',
+      '.vscode/**',
+      '.vscode-test/**',
+      'dist/**',
+      'coverage/**',
+    ],
+  },
   {
     files: ['**/*.js'],
     ...js.configs.recommended,

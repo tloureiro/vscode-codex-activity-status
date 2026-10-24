@@ -8,35 +8,25 @@ const manifest = require('../package.json');
 const root = path.resolve(__dirname, '..');
 const sourceDirectory = path.join(root, 'src');
 
-test('runtime contains only completion-era modules and no production dependencies', () => {
-  assert.deepEqual(fs.readdirSync(sourceDirectory).sort(), [
-    'completion-events.js',
-    'completion-state.js',
-    'extension.js',
-    'integration.js',
-    'notifier.js',
-    'setup.js',
-    'status-presenter.js',
-  ]);
+test('activity UI uses a public webview and has no production dependencies', () => {
   assert.equal(manifest.dependencies, undefined);
+  assert.equal(manifest.contributes.views.codexActivity[0].type, 'webview');
+  assert.equal(manifest.contributes.viewsContainers.panel[0].id, 'codexActivity');
   assert.ok(
-    manifest.contributes.commands.every(({ command }) => command.startsWith('codexCompletion.')),
-  );
-  assert.ok(
-    Object.keys(manifest.contributes.configuration.properties).every((key) =>
-      key.startsWith('codexCompletion.'),
+    Object.keys(manifest.contributes.configuration.properties).every(
+      (key) => key.startsWith('codexCompletion.') || key.startsWith('codexActivity.'),
     ),
   );
 });
 
 test('active runtime has no interception, private status-color, or workspace-overlay mechanism', () => {
   const activeFiles = [
-    'completion-events.js',
-    'completion-state.js',
-    'extension.js',
-    'notifier.js',
-    'setup.js',
+    'activity-events.js',
+    'activity-state.js',
+    'activity-helper.js',
+    'activity-view.js',
     'status-presenter.js',
+    'extension.js',
   ];
   const activeRuntime = activeFiles
     .map((file) => fs.readFileSync(path.join(sourceDirectory, file), 'utf8'))
@@ -48,6 +38,7 @@ test('active runtime has no interception, private status-color, or workspace-ove
     'chatgpt.cliExecutable',
     'workbench.colorCustomizations',
     'codex-activity-proxy',
+    "require('node:inspector')",
   ])
     assert.equal(activeRuntime.includes(forbidden), false, forbidden);
 });

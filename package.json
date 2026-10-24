@@ -1,8 +1,8 @@
 {
   "name": "codex-activity-status",
-  "displayName": "Codex Completion",
-  "description": "A small, completion-only status indicator for Codex in VS Code.",
-  "version": "0.3.0",
+  "displayName": "Codex Activity",
+  "description": "A colored status-bar beacon for Codex activity, with opt-in project hooks and an optional detail panel.",
+  "version": "0.4.1",
   "publisher": "tloureiro",
   "license": "MIT",
   "engines": {
@@ -31,9 +31,13 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "check:public": "node scripts/check-public-files.js",
+    "sources:update": "node scripts/update-sources.js",
+    "research:introspection": "node scripts/probe-vscode-introspection.js",
+    "research:source-replay": "node research/introspection/source-replay.js",
+    "research:hooks": "node research/hooks/probe.js",
     "validate": "npm run check && npm run lint && npm run format:check && npm run check:public && npm test",
     "package": "mkdir -p dist && vsce package --no-rewrite-relative-links --out dist/",
-    "test:vscode": "node scripts/test-vscode.js"
+    "test:vscode": "node scripts/test-activity-vscode.js"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
@@ -46,8 +50,36 @@
   "contributes": {
     "commands": [
       {
+        "command": "codexActivity.show",
+        "title": "Codex Activity: Show Panel"
+      },
+      {
+        "command": "codexActivity.installProjectHooks",
+        "title": "Codex Activity: Install or Update Project Hooks"
+      },
+      {
+        "command": "codexActivity.removeProjectHooks",
+        "title": "Codex Activity: Remove Project Hooks"
+      },
+      {
+        "command": "codexActivity.acknowledge",
+        "title": "Codex Activity: Acknowledge"
+      },
+      {
+        "command": "codexActivity.chooseScope",
+        "title": "Codex Activity: Choose Project or Conversation"
+      },
+      {
+        "command": "codexActivity.openHooks",
+        "title": "Codex Activity: Review Project Hook File"
+      },
+      {
+        "command": "codexActivity.diagnostics",
+        "title": "Codex Activity: Show Diagnostics"
+      },
+      {
         "command": "codexCompletion.setup",
-        "title": "Codex Completion: Set Up"
+        "title": "Codex Activity: Set Up (Legacy Command Alias)"
       },
       {
         "command": "codexCompletion.cleanupLegacy",
@@ -55,7 +87,7 @@
       },
       {
         "command": "codexCompletion.removeIntegration",
-        "title": "Codex Completion: Remove Integration"
+        "title": "Codex Activity: Remove Legacy Completion Integration"
       },
       {
         "command": "codexCompletion.acknowledge",
@@ -66,18 +98,63 @@
         "title": "Codex Completion: Show Diagnostics"
       }
     ],
+    "viewsContainers": {
+      "panel": [
+        {
+          "id": "codexActivity",
+          "title": "Codex Activity",
+          "icon": "media/activity.svg"
+        }
+      ]
+    },
+    "views": {
+      "codexActivity": [
+        {
+          "type": "webview",
+          "id": "codexActivity.panel",
+          "name": "Codex Activity",
+          "contextualTitle": "Project activity",
+          "visibility": "hidden"
+        }
+      ]
+    },
     "configuration": {
-      "title": "Codex Completion",
+      "title": "Codex Activity",
       "properties": {
+        "codexActivity.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show activity signals in the existing status bar for projects where you explicitly installed hooks."
+        },
+        "codexActivity.autoAcknowledge": {
+          "type": "boolean",
+          "default": false,
+          "description": "Acknowledge unread completions when returning to this window. Off keeps the purple status-bar beacon until you acknowledge it."
+        },
+        "codexActivity.beaconWidth": {
+          "type": "integer",
+          "default": 24,
+          "minimum": 8,
+          "maximum": 48,
+          "description": "Width of the colored status-bar strip in solid block characters. Uses status-bar width without reducing editor height."
+        },
+        "codexActivity.nodePath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "Optional absolute path to Node.js 18+ for installing the independent project helper. Empty detects a local Node installation. Changing this requires explicitly updating project hooks."
+        },
         "codexCompletion.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Show completion notifications for Codex in this window."
+          "description": "Legacy completion-only setting.",
+          "deprecationMessage": "Version 0.4 uses codexActivity.enabled and opt-in project hooks. Existing notify configuration is not removed automatically."
         },
         "codexCompletion.autoAcknowledge": {
           "type": "boolean",
           "default": true,
-          "description": "Acknowledge unread completions when returning to this window or interacting with a text editor."
+          "description": "Legacy completion-only acknowledgement setting.",
+          "deprecationMessage": "Use codexActivity.autoAcknowledge."
         }
       }
     },

@@ -1,0 +1,10 @@
+{
+  "name": "codex-snapshot-research",
+  "publisher": "local-research",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.143.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": []
+}

@@ -1,22 +1,38 @@
 # Validation
 
-Run the complete local validation suite:
-
 ```sh
 npm run validate
+npm run test:vscode
+npm run package
 ```
 
-It covers:
+Local validation covers syntax, formatting, lint, public-file hygiene, no private
+interception or appearance mutation, setup consent/cancellation, ownership and
+preservation of external files, shell quoting, metadata-only output, missing
+receivers/helpers, stale and out-of-order events, terminal confirmation and
+distinct failed/interrupted outcomes, persisted acknowledgement, and webview
+escaping/recreation. Legacy cleanup regressions remain covered.
 
-- syntax, lint, formatting, and public-file hygiene;
-- an architecture boundary that excludes interception, private status colors, workspace overlays, and production dependencies;
-- owned `notify` block installation/removal and custom-notify protection;
-- restoration of the former executable setting and deletion of its proxy;
-- selective TOML and JSON legacy-hook cleanup;
-- privacy-minimized notifier output and workspace routing;
-- completion acknowledgement behavior; and
-- public status-item rendering.
+The public-file check uses the user's read-only `git-safe` wrapper by default;
+`GIT_READ_ONLY_BIN` can select another approved read-only wrapper. No Git writes
+are part of validation, source updates or packaging.
 
-`npm run test:vscode` launches a disposable VS Code profile and empty Codex home to verify extension activation. It does not read personal Codex configuration, authentication, or chats.
+The real VS Code test requires the local installed-reference manifest. It installs
+the production helper only in a disposable project and trusts only those exact
+definitions via a public RPC in an empty disposable Codex home. Both its runtime
+and IDE phases are sandboxed against personal Codex-home reads, home/application
+writes and non-localhost outbound network. It uses a deterministic local Responses
+fixture and no personal credentials or real model requests.
 
-Manual release checks should also confirm that setup and removal work in an installed profile, a newly completed Codex turn reaches the matching workspace, a custom `notify` command is not changed, and restarting VS Code does not resurrect an old completion.
+The live test keeps the detail panel closed and exercises the actual status-bar
+item's text/color through blue activity, purple
+confirmed completion, distinct failure, helper absence/recovery and an amber
+approval candidate. It then opens the optional detail view on explicit request.
+It does not answer the final synthetic approval; disposing
+the test profile ends that pending turn. Artifacts include the result and launch
+log in the reported disposable directory.
+
+Mission Control recognition at the user's preferred window count/thumbnail size
+still needs a manual check: the strip has the existing bar's fixed height and can
+become thin at small thumbnail sizes. Do not claim exact waiting state or exclusive
+window ownership from these tests.
