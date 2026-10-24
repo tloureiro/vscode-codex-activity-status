@@ -17,6 +17,14 @@ The public-file check uses the user's read-only `git-safe` wrapper by default;
 `GIT_READ_ONLY_BIN` can select another approved read-only wrapper. No Git writes
 are part of validation, source updates or packaging.
 
+The packaging tool's `@azure/identity` dependency currently requires MSAL Node 6,
+which is affected by GHSA-xcx6-jx8p-x3h5. A scoped npm override pins its
+`@azure/msal-node` to patched version 7.1.1. MSAL 7 removes the interactive
+`responseMode` option; the installed Identity adapter does not pass that option.
+Remove the override when the upstream dependency accepts a patched version.
+After changing this override, run `npm audit`, `npm run validate` and
+`npm run package`; packaging checks do not exercise authenticated publishing.
+
 The real VS Code test requires the local installed-reference manifest. It installs
 the production helper only in a disposable project and trusts only those exact
 definitions via a public RPC in an empty disposable Codex home. Both its runtime
