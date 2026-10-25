@@ -7,6 +7,15 @@ const { execFile } = require('node:child_process');
 const { EVENTS, privateDirectory } = require('./activity-helper');
 
 const OWNER = 'tloureiro.codex-activity-status/project-hooks/v1';
+const HOOK_LABELS = {
+  SessionStart: 'Codex Activity — session started',
+  UserPromptSubmit: 'Codex Activity — prompt submitted',
+  PreToolUse: 'Codex Activity — tool starting',
+  PermissionRequest: 'Codex Activity — permission requested',
+  PostToolUse: 'Codex Activity — tool finished',
+  Stop: 'Codex Activity — turn stopped; check completion',
+  Interrupt: 'Codex Activity — turn interrupted',
+};
 const IGNORE = '# Codex Activity (local installation)\n/hooks.json\n/codex-activity/\n';
 const quote = (value) => "'" + value.replace(/'/g, "'\\''") + "'";
 const hash = (value) => crypto.createHash('sha256').update(value).digest('hex');
@@ -160,6 +169,7 @@ class ProjectHooks {
             'The local helper was edited. Automatic updates are paused to preserve your changes.',
         };
       const ready =
+        hooks === this.configuration(manifest.node) &&
         helper !== null &&
         hash(helper) === hash(fs.readFileSync(this.source)) &&
         config !== null &&
@@ -169,31 +179,46 @@ class ProjectHooks {
       return {
         code: ready ? 'installed' : 'repair',
         detail: ready
-          ? 'Hooks installed. Review their trust in Codex, then start a new chat.'
-          : 'Project helper needs an explicit update.',
+          ? 'Hooks installed. Review them in Codex settings → Hooks, then start a new chat.'
+          : 'Run Codex Activity: Install or Update Project Hooks to update the hooks and helper.',
         manifest,
       };
     } catch (error) {
       return { code: 'conflict', detail: error.message };
     }
   }
-  plan(node) {
-    this.safePaths();
-    const status = this.status();
-    if (status.code === 'conflict') throw new Error(status.detail);
+  configuration(node) {
     const command = `${quote(node)} ${quote(path.join(this.directory, 'observer.js'))} >/dev/null 2>&1 || :`;
     const hooks = {
       description: OWNER,
       hooks: Object.fromEntries(
         [...EVENTS].map((event) => [
           event,
-          [{ hooks: [{ type: 'command', command, async: true, timeout: 1 }] }],
+          [
+            {
+              hooks: [
+                {
+                  type: 'command',
+                  command,
+                  statusMessage: HOOK_LABELS[event],
+                  async: true,
+                  timeout: 1,
+                },
+              ],
+            },
+          ],
         ]),
       ),
     };
+    return JSON.stringify(hooks, null, 2) + '\n';
+  }
+  plan(node) {
+    this.safePaths();
+    const status = this.status();
+    if (status.code === 'conflict') throw new Error(status.detail);
     return {
       node,
-      hooks: JSON.stringify(hooks, null, 2) + '\n',
+      hooks: this.configuration(node),
       before: read(this.hooksFile),
       beforeIgnore: read(this.ignoreFile),
       status,

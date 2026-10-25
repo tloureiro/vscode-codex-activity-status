@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
+const assert = require('node:assert/strict');
 const { runTests } = require('@vscode/test-electron');
 const { Client } = require('../research/hooks/rpc');
 const { ProjectHooks } = require('../src/project-hooks');
@@ -138,6 +139,16 @@ async function main() {
     );
     await client.initialize();
     const listing = await client.request('hooks/list', { cwds: [workspace] });
+    const configured = JSON.parse(fs.readFileSync(installer.hooksFile));
+    const labels = Object.values(configured.hooks).flatMap((groups) =>
+      groups.flatMap((group) => group.hooks.map((hook) => hook.statusMessage)),
+    );
+    assert.equal(listing.data[0].hooks.length, 7);
+    assert.deepEqual(
+      listing.data[0].hooks.map((hook) => hook.statusMessage).sort(),
+      labels.sort(),
+      'Codex must expose all seven descriptive labels to its hook review UI',
+    );
     await client.request('config/batchWrite', {
       edits: [
         {

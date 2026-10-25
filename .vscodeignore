@@ -1,4 +1,5 @@
 .git/**
+.codex/**
 sources/**
 research/**
 .gitignore

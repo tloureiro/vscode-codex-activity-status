@@ -50,6 +50,7 @@ test('installation is planned without writes, ignored by default, and removed wi
   const config = JSON.parse(fs.readFileSync(hooks.hooksFile));
   assert.equal(Object.keys(config.hooks).length, 7);
   for (const groups of Object.values(config.hooks)) {
+    assert.match(groups[0].hooks[0].statusMessage, /^Codex Activity — .+/);
     assert.equal(groups[0].hooks[0].async, true);
     assert.equal(groups[0].hooks[0].timeout, 1);
   }
@@ -71,6 +72,44 @@ test('installation is planned without writes, ignored by default, and removed wi
   assert.equal(fs.existsSync(hooks.hooksFile), false);
   assert.equal(fs.readFileSync(path.join(hooks.directory, 'personal.txt'), 'utf8'), 'keep');
   assert.equal(fs.existsSync(hooks.ignoreFile), true);
+});
+
+test('unlabelled owned hooks require an explicit update; planning preserves them and updating adds labels', (t) => {
+  const { hooks } = fixture(t);
+  const plan = hooks.plan(process.execPath);
+  const legacy = JSON.parse(plan.hooks);
+  for (const groups of Object.values(legacy.hooks)) delete groups[0].hooks[0].statusMessage;
+  const original = JSON.stringify(legacy, null, 2) + '\n';
+  const manifest = hooks.install({ ...plan, hooks: original });
+  const helper = fs.readFileSync(path.join(hooks.directory, 'observer.js'));
+  const configuration = fs.readFileSync(path.join(hooks.directory, 'observer-config.json'));
+  assert.equal(hooks.status().code, 'repair');
+  const update = hooks.plan(process.execPath);
+  assert.equal(fs.readFileSync(hooks.hooksFile, 'utf8'), original);
+  assert.equal(fs.existsSync(path.join(hooks.codex, 'config.toml')), false);
+  const labelled = JSON.parse(update.hooks);
+  assert.deepEqual(
+    Object.values(labelled.hooks).map((groups) => groups[0].hooks[0].statusMessage),
+    [
+      'Codex Activity — session started',
+      'Codex Activity — prompt submitted',
+      'Codex Activity — tool starting',
+      'Codex Activity — permission requested',
+      'Codex Activity — tool finished',
+      'Codex Activity — turn stopped; check completion',
+      'Codex Activity — turn interrupted',
+    ],
+  );
+  for (const groups of Object.values(labelled.hooks)) delete groups[0].hooks[0].statusMessage;
+  assert.deepEqual(labelled, legacy, 'Only descriptive labels change in the hook definitions');
+  hooks.install(update);
+  assert.equal(hooks.status().code, 'installed');
+  assert.deepEqual(fs.readFileSync(path.join(hooks.directory, 'observer.js')), helper);
+  assert.deepEqual(
+    fs.readFileSync(path.join(hooks.directory, 'observer-config.json')),
+    configuration,
+  );
+  assert.equal(hooks.status().manifest.root, manifest.root);
 });
 
 test('installer preserves existing hooks, edited helpers, and files changed during confirmation', (t) => {

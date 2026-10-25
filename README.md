@@ -31,10 +31,17 @@ and helper stay local. No Git commands or Git metadata edits are involved. An
 existing hook file is left untouched: this first version refuses to overwrite or
 merge unrelated hooks. Ignore rules cannot untrack already tracked files.
 
-**Review and trust the new hooks in Codex**, using its hook review UI or `/hooks`
-in its CLI, then start a new chat. Installation does not bypass trust or modify
+In the VS Code Codex sidebar, open **Codex settings → Hooks**. Review this project's
+seven hooks labelled **Codex Activity — …**, expand their details, and allow them.
+The labels identify session start, prompt submission, tool start, permission requests,
+tool finish, turn stop and interruption. Then start a new chat. Installation does not bypass trust or modify
 your Codex user configuration. Codex manages trust separately and may write its
 own trust records there. Both project trust and hook trust are required.
+
+If an older installation shows “Hook 1” through “Hook 7”, run **Codex Activity:
+Install or Update Project Hooks** after updating the extension. Confirm the project
+update to add the labels, then review the updated definitions in Codex settings →
+Hooks. Changed definitions may require approval again. CLI users can use `/hooks`.
 
 No extra panel needs to stay open. Keep VS Code's existing status bar visible;
 `codexActivity.beaconWidth` adjusts the strip width (24 block characters by

@@ -3,9 +3,34 @@
 Updated October 24, 2026. Read this with `AGENTS.md` before resuming. The user is
 ending the session; do not assume the copy/paste Git commands have been executed.
 
+## Hook review labels follow-up
+
+Version **0.4.2** adds descriptive `statusMessage` labels to all seven project hooks,
+so Codex's review dialog identifies each as “Codex Activity — …” with its event.
+Setup, status messages and README now direct VS Code users to Codex settings →
+Hooks. Existing owned installations without labels report an update requirement;
+the normal per-project confirmation remains required and startup never rewrites them.
+Changed definitions may need approval again in Codex.
+Packaging also excludes `.codex/**` so locally installed project hooks, runtime
+paths and ownership metadata never enter the VSIX.
+
+Validation: `npm run validate` passed with **31 tests**, including an upgrade from
+unlabelled hooks without writes during planning. `npm run test:vscode` passed with
+the deterministic local fixture; it also verifies that the installed Codex runtime's
+`hooks/list` exposes all seven labels consumed by the review UI. This checks the
+runtime data; the native review dialog itself was not visually automated.
+
+The updated package is `dist/codex-activity-status-0.4.2.vsix`. This follow-up has
+not installed it in the normal profile, updated real project hooks or granted
+Codex trust. Install the package, reload VS Code, run **Codex Activity: Install or
+Update Project Hooks**, confirm the project update, and review the labelled hooks
+in Codex. No Git writes were performed. The existing untracked `.codex/` content
+was present before this follow-up and was left unchanged.
+
 ## Current product decision
 
-Version **0.4.1** is implemented and packaged. The user approved a wide colored
+Version **0.4.1** introduced the strip; **0.4.2** is the current packaged follow-up.
+The user approved a wide colored
 strip in our own existing public status-bar item, using block characters and
 foreground color. The default is 24 characters, configurable from 8 to 48.
 It consumes status-bar width but no editor height. The large panel is optional,
@@ -87,33 +112,41 @@ from the VSIX; do not promote it to production by accident.
 
 ## Publication review and Git boundary
 
-The user requested a review limited to current staged/unstaged/untracked changes,
-not history or unrelated files, followed by copy/paste add/commit/push commands.
-There were no staged changes at review start. No credentials or personal contact
-details were found in the reviewed additions/new files. Public extension identity,
-upstream versions/hashes, generic filesystem paths and synthetic fixtures remain
-intentional. Root ignore rules also protect project-local installed hooks/helpers.
-The final reviewed set contains 48 changed files, including this handoff; the
-final scan found no credential/contact/home-path matches. Retained long strings
-were upstream URLs, public version hashes and Markdown table separators.
+The latest publication review is limited to the current uncommitted hook-label
+follow-up, not history or unrelated files. There were no staged changes. The
+reviewed set contains 13 changed tracked files, including this handoff and the
+root `.gitignore`. The sole initially untracked file, `.codex/.gitignore`, contains
+only generated local ignore rules; it is now explicitly ignored at the root.
+The existing local hook/helper files remain untouched and ignored. `.vscodeignore`
+excludes all `.codex/**` content from packages, and the rebuilt 0.4.2 VSIX was
+checked to contain no local `.codex/` files. The earlier intermediate package
+included local hook files and was replaced by this corrected build; do not use
+older packages as publication artifacts without separately inspecting them.
+
+No credentials, secret keys, personal contact details or machine-specific home
+paths were found in the reviewed additions or initially untracked file. The
+existing public extension identity and synthetic test fixture names are
+intentional. Build output, downloaded references and local logs remain ignored.
+This is a review of the current changes, not a certification of the repository's
+existing contents or history.
 
 No Git staging, commit, push, fetch, history scan, ref change or cleanup was
 authorized or performed. All Git reads must use the user's `git-safe` wrapper;
-never fall back to direct Git. The wrapper blocked `branch --show-current`, so
-the suggested push uses `HEAD` rather than an unverified branch name. Do not
-attempt to bypass that restriction or infer execution of the suggested commands.
+never fall back to direct Git. A previous wrapper restriction blocked branch
+name inspection; this review does not retry or bypass it. The suggested push
+uses `HEAD` rather than an unverified branch name.
 
-Copy/paste commands supplied for the reviewed working tree, from repository root:
+Copy/paste commands for the reviewed files, from repository root:
 
 ```sh
-git add -- .
-git commit -m "Add opt-in Codex activity hooks and status-bar beacon"
+git add -- .gitignore .vscodeignore README.md \
+  docs/INTEGRATION.md docs/SESSION-HANDOFF.md install.sh \
+  package.json package-lock.json scripts/test-activity-vscode.js \
+  src/activity-view.js src/extension.js src/project-hooks.js test/activity.test.js
+git commit -m "Label Codex activity hooks and clarify trust setup"
 git push -u origin HEAD
 ```
 
-These commands were not executed by the agent. New changes made after this review
-must be reviewed before treating the same broad add command as publication-ready.
-
-Local artifact locations and review metadata can be retained in ignored
-`sources/analysis/SESSION-HANDOFF.md`; never publish raw local logs, downloaded
-extension bundles, source manifests containing home paths, or diagnostics.
+These commands were not executed by the agent. New changes after this review
+require a fresh review; do not infer that the user copied or ran these commands.
+Never publish raw local logs, reference bundles, home-path manifests or diagnostics.

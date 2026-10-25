@@ -29,6 +29,12 @@ Removal unregisters unchanged hooks before deleting unchanged owned helper files
 preserves unknown files and leaves ignore rules. No Git commands or metadata
 changes are required. Ignore rules cannot untrack pre-existing tracked files.
 
+Each command includes a descriptive `statusMessage` beginning with “Codex Activity —”
+and identifying its event. Codex uses it as the hook review row label. Existing owned
+installations without these labels are marked for an explicit project update; startup
+does not rewrite them. In the VS Code Codex sidebar, review the updated definitions
+under Codex settings → Hooks and allow them before starting a new chat.
+
 The installer does not write Codex's user configuration or grant trust. Project
 trust and exact hook-definition trust are reviewed separately in Codex. Its
 normal trust UI records `hooks.state` in its own user configuration. Helper content

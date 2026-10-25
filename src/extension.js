@@ -216,7 +216,7 @@ async function activate(context) {
         `Install activity hooks for ${project.name}?`,
         {
           modal: true,
-          detail: `Creates or updates this extension's .codex/hooks.json and .codex/codex-activity/ helper, and adds ignore rules to .codex/.gitignore. Existing unrelated hook files are never overwritten. Git ignores do not untrack previously tracked files.\n\nSeven background hooks send only activity metadata to local storage. Node runtime: ${node}. No proxy, executable override, or automatic changes to your Codex user configuration.\n\nAfter installation, review and trust the commands in Codex. Codex manages that separate trust configuration. Restart the chat afterward.`,
+          detail: `Creates or updates this extension's .codex/hooks.json and .codex/codex-activity/ helper, and adds ignore rules to .codex/.gitignore. Existing unrelated hook files are never overwritten. Git ignores do not untrack previously tracked files.\n\nSeven background hooks send only activity metadata to local storage. Node runtime: ${node}. No proxy, executable override, or automatic changes to your Codex user configuration.\n\nAfter installation, open Codex settings → Hooks in the VS Code Codex sidebar. Review this project's seven hooks labelled "Codex Activity — …" and allow them, then start a new chat. Updated definitions may need approval again. Codex manages that separate trust configuration.`,
         },
         'Install Project Hooks',
       );
@@ -234,7 +234,7 @@ async function activate(context) {
       );
       refresh();
       const next = await vscode.window.showInformationMessage(
-        'Project hooks installed. Review and trust them in Codex, then start a new chat. Activity colors appear in the existing status bar.',
+        'Project hooks installed. Open Codex settings → Hooks, review this project\'s "Codex Activity — …" hooks and allow them, then start a new chat. Activity colors appear in the existing status bar.',
         'Open Codex',
       );
       if (next === 'Open Codex') await vscode.commands.executeCommand('chatgpt.openSidebar');
