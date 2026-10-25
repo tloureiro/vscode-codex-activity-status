@@ -331,3 +331,47 @@ test('webview escapes project names, constrains scripts, and repaints a recreate
   assert.ok(second.webview.html);
   provider.dispose();
 });
+
+test('repair restores every missing owned installation file and refuses ownership loss', (t) => {
+  const { hooks } = fixture(t);
+  hooks.install(hooks.plan(process.execPath));
+  for (const file of [
+    hooks.hooksFile,
+    hooks.ignoreFile,
+    path.join(hooks.directory, 'observer.js'),
+    path.join(hooks.directory, 'observer-config.json'),
+  ]) {
+    fs.unlinkSync(file);
+    assert.equal(hooks.status().code, 'repair');
+    const plan = hooks.plan(process.execPath);
+    assert.equal(fs.existsSync(file), false, 'Planning does not recreate missing files');
+    hooks.install(plan);
+    assert.equal(hooks.status().code, 'installed');
+  }
+  fs.unlinkSync(hooks.manifestFile);
+  assert.equal(hooks.status().code, 'conflict');
+  assert.throws(() => hooks.plan(process.execPath), /already has/);
+});
+
+test('repair refuses helper and ownership edits made while confirmation is open', (t) => {
+  const { hooks } = fixture(t);
+  hooks.install(hooks.plan(process.execPath));
+  for (const file of [path.join(hooks.directory, 'observer.js'), hooks.manifestFile]) {
+    const before = fs.readFileSync(file);
+    const plan = hooks.plan(process.execPath);
+    fs.appendFileSync(file, '\n ');
+    assert.throws(() => hooks.install(plan), /changed during confirmation/);
+    fs.writeFileSync(file, before);
+  }
+});
+
+test('orphaned helpers without a manifest are preserved even when hooks.json is missing', (t) => {
+  const { hooks } = fixture(t);
+  hooks.install(hooks.plan(process.execPath));
+  fs.unlinkSync(hooks.hooksFile);
+  fs.unlinkSync(hooks.manifestFile);
+  const helper = fs.readFileSync(path.join(hooks.directory, 'observer.js'));
+  assert.equal(hooks.status().code, 'conflict');
+  assert.throws(() => hooks.plan(process.execPath), /no ownership manifest/);
+  assert.deepEqual(fs.readFileSync(path.join(hooks.directory, 'observer.js')), helper);
+});

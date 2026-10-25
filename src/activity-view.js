@@ -120,7 +120,7 @@ function html(model) {
   h1{font-size:clamp(18px,3vw,27px);letter-spacing:-.5px;font-weight:650;margin:0 0 5px}.detail{font-size:12px;opacity:.9;line-height:1.4;max-width:65ch}.right{margin-left:auto;text-align:right;min-width:100px}.project{max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;font-weight:600}.scope{font-size:10px;opacity:.8;margin-top:5px}
   .actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;margin-top:10px}button{cursor:pointer;background:transparent;color:inherit;border:1px solid currentColor;border-radius:5px;padding:5px 9px;font-family:inherit;font-size:11px}button:hover{background:#ffffff20}button:focus-visible{outline:2px solid currentColor;outline-offset:2px}
   @media(max-width:500px){main{gap:12px;padding:12px}.symbol{min-width:35px;width:35px;height:35px;font-size:25px}.right{min-width:65px}.scope{display:none}.detail{font-size:11px}}
-  </style></head><body><main role="status" aria-live="polite"><div class="symbol" aria-hidden="true">${p.symbol}</div><div><h1>${escape(p.title)}</h1><div class="detail">${escape(p.detail)}</div></div><div class="right"><div class="project">${escape(model.projectName || 'Codex Activity')}</div><div class="scope">${escape(model.sessionId ? 'Thread ' + model.sessionId.slice(0, 8) : 'All project conversations')}</div><div class="actions">${install ? '<button data-action="install">' + (model.health.code === 'repair' ? 'Update hooks' : 'Install project hooks') + '</button>' : ''}${acknowledge ? '<button data-action="acknowledge">Acknowledge</button>' : ''}${model.project ? '<button data-action="select">Choose scope</button>' : ''}${model.health.code === 'conflict' ? '<button data-action="openHooks">Review hooks</button>' : ''}</div></div></main>
+  </style></head><body><main role="status" aria-live="polite"><div class="symbol" aria-hidden="true">${p.symbol}</div><div><h1>${escape(p.title)}</h1><div class="detail">${escape(p.detail)}</div></div><div class="right"><div class="project">${escape(model.projectName || 'Codex Activity')}</div><div class="scope">${escape(model.sessionId ? 'Thread ' + model.sessionId.slice(0, 8) : 'All project conversations')}</div><div class="actions">${install ? '<button data-action="repair">' + 'Repair or set up' + '</button>' : ''}${acknowledge ? '<button data-action="acknowledge">Acknowledge</button>' : ''}${model.project ? '<button data-action="select">Choose scope</button>' : ''}${model.health.code === 'conflict' ? '<button data-action="openHooks">Review hooks</button>' : ''}</div></div></main>
   <script nonce="${nonce}">const api=acquireVsCodeApi();document.querySelectorAll('[data-action]').forEach(button=>button.addEventListener('click',()=>api.postMessage({action:button.dataset.action})));</script></body></html>`;
 }
 class ActivityView {
@@ -133,7 +133,7 @@ class ActivityView {
     this.signature = null;
     view.webview.options = { enableScripts: true, localResourceRoots: [] };
     this.message = view.webview.onDidReceiveMessage((message) => {
-      if (message && ['install', 'acknowledge', 'select', 'openHooks'].includes(message.action))
+      if (message && ['repair', 'acknowledge', 'select', 'openHooks'].includes(message.action))
         this.onAction(message.action);
     });
     this.visibility = view.onDidChangeVisibility(() => {

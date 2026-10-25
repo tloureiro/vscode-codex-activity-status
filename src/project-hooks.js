@@ -139,20 +139,27 @@ class ProjectHooks {
       this.safePaths();
       const hooks = read(this.hooksFile);
       const installed = read(this.manifestFile);
-      if (!installed)
-        return hooks === null
+      if (!installed) {
+        const orphaned = ['observer.js', 'observer-config.json'].some(
+          (name) => read(path.join(this.directory, name)) !== null,
+        );
+        return hooks === null && !orphaned
           ? { code: 'setup', detail: 'Enable activity for this project.' }
           : {
               code: 'conflict',
-              detail: 'This project already has hooks.json. It has been left unchanged.',
+              detail:
+                hooks !== null
+                  ? 'This project already has hooks.json. It has been left unchanged.'
+                  : 'Local helper files have no ownership manifest. Review them manually; no files were changed.',
             };
+      }
       const manifest = JSON.parse(installed);
       if (manifest.owner !== OWNER || manifest.project !== this.project)
         return {
           code: 'conflict',
           detail: 'Unrecognized project integration. No files were changed.',
         };
-      if (!hooks || hash(hooks) !== manifest.hooksHash)
+      if (hooks !== null && hash(hooks) !== manifest.hooksHash)
         return {
           code: 'conflict',
           detail:
@@ -181,7 +188,7 @@ class ProjectHooks {
         code: ready ? 'installed' : 'repair',
         detail: ready
           ? 'Hooks installed. Review them in Codex settings → Hooks, then start a new chat.'
-          : 'Run Codex Activity: Install or Update Project Hooks to update the hooks and helper.',
+          : 'Run Codex Activity: Repair or Set Up to update the hooks and helper.',
         manifest,
       };
     } catch (error) {
@@ -220,15 +227,27 @@ class ProjectHooks {
     return {
       node,
       hooks: this.configuration(node),
-      before: read(this.hooksFile),
       beforeIgnore: read(this.ignoreFile),
+      beforeFiles: this.snapshot(),
       status,
     };
   }
-  install(plan) {
+  snapshot() {
+    return [
+      this.hooksFile,
+      this.ignoreFile,
+      this.manifestFile,
+      path.join(this.directory, 'observer.js'),
+      path.join(this.directory, 'observer-config.json'),
+    ].map((file) => [file, read(file)]);
+  }
+  check(plan) {
     this.safePaths();
-    if (read(this.hooksFile) !== plan.before || read(this.ignoreFile) !== plan.beforeIgnore)
+    if (JSON.stringify(this.snapshot()) !== JSON.stringify(plan.beforeFiles))
       throw new Error('Project files changed during confirmation. Review setup again.');
+  }
+  install(plan) {
+    this.check(plan);
     const root = runtimeRoot(this.project, this.tmp);
     fs.mkdirSync(this.directory, { recursive: true, mode: 0o700 });
     const config = JSON.stringify({ schema: 1, project: this.project, root });
@@ -268,7 +287,7 @@ class ProjectHooks {
         'Cannot remove edited or unrecognized project hooks automatically. Open the hook file to review it.',
       );
     // Unregister before removing the helper. Never remove somebody else's edits.
-    fs.unlinkSync(this.hooksFile);
+    if (read(this.hooksFile) !== null) fs.unlinkSync(this.hooksFile);
     for (const [name, expected] of [
       ['observer.js', manifest.helperHash],
       ['observer-config.json', manifest.configHash],

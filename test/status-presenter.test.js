@@ -44,7 +44,7 @@ test('activity beacon uses only its own text and foreground with accessible labe
   model.health.code = 'repair';
   presenter.update(model);
   assert.doesNotMatch(item.text, /█/);
-  assert.equal(item.command, 'codexActivity.installProjectHooks');
+  assert.equal(item.command, 'codexActivity.repair');
   presenter.dispose();
 });
 

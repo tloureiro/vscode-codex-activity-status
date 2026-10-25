@@ -35,6 +35,7 @@ for (const initiallyEnabled of [true, false]) {
               : key === 'enabled'
                 ? configuredEnabled
                 : fallback,
+          inspect: () => ({}),
           update: () => {
             throw new Error('Unexpected preference write');
           },
@@ -70,6 +71,7 @@ for (const initiallyEnabled of [true, false]) {
       },
     };
     const context = {
+      globalStorageUri: { fsPath: path.join(root, 'storage') },
       extensionPath,
       extension: { packageJSON: { version: '0.4.0' } },
       subscriptions: [],
@@ -78,6 +80,7 @@ for (const initiallyEnabled of [true, false]) {
         update: async (key, value) => memory.set(key, value),
       },
       globalState: {
+        get: () => undefined,
         update() {
           throw new Error('Unexpected global integration write');
         },
@@ -86,7 +89,31 @@ for (const initiallyEnabled of [true, false]) {
     const file = path.join(extensionPath, 'src/extension.js');
     const localRequire = createRequire(file);
     const sandbox = {
-      require: (name) => (name === 'vscode' ? vscode : localRequire(name)),
+      require: (name) => {
+        if (name === 'vscode') return vscode;
+        if (name === './repair') {
+          const { Integration } = localRequire('./integration');
+          const repairFile = path.join(extensionPath, 'src/repair.js');
+          const repairSandbox = {
+            module: { exports: {} },
+            require: (id) =>
+              id === './integration'
+                ? {
+                    Integration: class extends Integration {
+                      constructor(v, c) {
+                        super(v, c, { codexHome: path.join(root, 'codex-home') });
+                      }
+                    },
+                  }
+                : localRequire(id),
+          };
+          vm.runInNewContext(fs.readFileSync(repairFile, 'utf8'), repairSandbox, {
+            filename: repairFile,
+          });
+          return repairSandbox.module.exports;
+        }
+        return localRequire(name);
+      },
       module: { exports: {} },
       process,
       setTimeout,
@@ -103,14 +130,14 @@ for (const initiallyEnabled of [true, false]) {
       fs.rmSync(root, { recursive: true, force: true });
     });
     assert.equal(api.setupStatus().code, 'setup');
-    await commands.get('codexActivity.installProjectHooks')();
+    await commands.get('codexActivity.repair')();
     assert.equal(prompts.length, 1);
     assert.equal(prompts[0][1].modal, true);
     assert.equal(fs.existsSync(path.join(root, '.codex')), false);
     assert.equal(fs.existsSync(path.join(root, '.vscode')), false);
     assert.equal(memory.has('activityEnabled'), false);
-    choice = 'Install Project Hooks';
-    await commands.get('codexActivity.installProjectHooks')();
+    choice = 'Repair and Set Up';
+    await commands.get('codexActivity.repair')();
     assert.deepEqual(errors, []);
     assert.equal(api.setupStatus().code, 'installed');
     runtime = api.setupStatus().manifest.root;
@@ -135,7 +162,7 @@ for (const initiallyEnabled of [true, false]) {
     );
     assert.equal(memory.get('activityEnabled'), undefined);
     choice = 'Remove Project Hooks';
-    await commands.get('codexActivity.removeProjectHooks')();
+    await commands.get('codexActivity.repair')();
     assert.equal(fs.existsSync(path.join(root, '.codex/hooks.json')), false);
     assert.deepEqual(errors, []);
   });

@@ -1,12 +1,12 @@
 'use strict';
 const fs = require('node:fs');
 const vscode = require('vscode');
-const { ProjectHooks, resolveNode, runtimeRoot, hash } = require('./project-hooks');
+const { ProjectHooks, runtimeRoot, hash } = require('./project-hooks');
 const { ActivityState } = require('./activity-state');
 const { ActivityEvents } = require('./activity-events');
 const { ActivityView, presentation } = require('./activity-view');
 const { StatusPresenter } = require('./status-presenter');
-const { Integration } = require('./integration');
+const { Repair } = require('./repair');
 let controller;
 async function activate(context) {
   function settings() {
@@ -28,7 +28,6 @@ async function activate(context) {
   let selectedProject = context.workspaceState.get('activityProject');
   let selectedSession = null;
   let disposed = false;
-  let busy = false;
   let promptTimer;
   let saveTimer;
   let focused = vscode.window.state.focused;
@@ -57,7 +56,7 @@ async function activate(context) {
   }
   const view = new ActivityView(model, (action) =>
     guarded(async () => {
-      if (action === 'install') await install();
+      if (action === 'repair') await repair.run();
       if (action === 'acknowledge') await acknowledge();
       if (action === 'select') await chooseScope();
       if (action === 'openHooks') await openHooks();
@@ -197,75 +196,23 @@ async function activate(context) {
     render();
     return picked.project;
   }
-  async function install() {
-    if (busy) return;
-    busy = true;
-    try {
-      refresh();
-      const project = await chooseProject();
-      if (!project) return;
-      if (!vscode.extensions.getExtension('openai.chatgpt'))
-        throw new Error('Install the official Codex extension first.');
-      if (project.health.code === 'conflict') {
-        await vscode.window.showWarningMessage(project.health.detail);
-        return;
-      }
-      const node = await resolveNode(settings().nodePath);
-      const plan = project.hooks.plan(node);
-      const choice = await vscode.window.showWarningMessage(
-        `Install activity hooks for ${project.name}?`,
-        {
-          modal: true,
-          detail: `Creates or updates this extension's .codex/hooks.json and .codex/codex-activity/ helper, and adds ignore rules to .codex/.gitignore, including the ignore file itself. Enables activity locally in VS Code storage without writing workspace settings. Existing unrelated hook files are never overwritten. Git ignores do not untrack previously tracked files.\n\nSeven background hooks send only activity metadata to local storage. Node runtime: ${node}. No proxy, executable override, or automatic changes to your Codex user configuration.\n\nAfter installation, open Codex settings → Hooks in the VS Code Codex sidebar. Review this project's seven hooks labelled "Codex Activity — …" and allow them, then start a new chat. Updated definitions may need approval again. Codex manages that separate trust configuration.`,
-        },
-        'Install Project Hooks',
-      );
-      if (choice !== 'Install Project Hooks' || disposed) return;
-      if (!vscode.workspace.isTrusted)
-        throw new Error('Workspace trust changed. Setup was cancelled.');
-      project.hooks.install(plan);
-      if (!settings().enabled) await context.workspaceState.update('activityEnabled', true);
-      await context.workspaceState.update(
-        'activitySetupDismissed.' + hash(project.hooks.project).slice(0, 24),
-        true,
-      );
-      refresh();
-      const next = await vscode.window.showInformationMessage(
-        'Project hooks installed. Open Codex settings → Hooks, review this project\'s "Codex Activity — …" hooks and allow them, then start a new chat. Activity colors appear in the existing status bar.',
-        'Open Codex',
-      );
-      if (next === 'Open Codex') await vscode.commands.executeCommand('chatgpt.openSidebar');
-    } finally {
-      busy = false;
-    }
-  }
-  async function removeProjectHooks() {
-    if (busy) return;
-    busy = true;
-    try {
-      const project = await chooseProject();
-      if (!project) return;
-      const choice = await vscode.window.showWarningMessage(
-        `Remove activity hooks from ${project.name}?`,
-        {
-          modal: true,
-          detail:
-            'Removes only the unchanged hook registration and helper files installed by this extension. Edited or unrelated files are preserved. Local Git ignore rules remain. Codex trust records are left unchanged.',
-        },
-        'Remove Project Hooks',
-      );
-      if (choice !== 'Remove Project Hooks') return;
+  const repair = new Repair(vscode, context, {
+    refresh,
+    available: () => projects.size > 0,
+    chooseProject,
+    settings,
+    disposed: () => disposed,
+    openHooks,
+    stop: (project) => {
       project.events?.dispose();
       project.events = null;
-      project.hooks.remove();
-      refresh();
-      await vscode.window.showInformationMessage(
-        'Project hooks removed. Restart the current Codex chat to reload its configuration.',
-      );
-    } finally {
-      busy = false;
-    }
-  }
+    },
+    installed: (project) =>
+      context.workspaceState.update(
+        'activitySetupDismissed.' + hash(project.hooks.project).slice(0, 24),
+        true,
+      ),
+  });
   async function acknowledge() {
     selected()?.state.acknowledge(selectedSession);
     record('acknowledged');
@@ -296,26 +243,6 @@ async function activate(context) {
     if (project && fs.existsSync(project.hooks.hooksFile))
       await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(project.hooks.hooksFile));
   }
-  async function legacy(removeNotify) {
-    const choice = await vscode.window.showWarningMessage(
-      removeNotify
-        ? 'Remove the legacy completion integration?'
-        : 'Remove legacy proxy and activity hooks?',
-      {
-        modal: true,
-        detail:
-          'This explicitly cleans recognized old integration entries in your Codex user configuration and restores an old executable override only if it still belongs to this extension. Unrelated settings are preserved. New project hooks are not touched.',
-      },
-      'Remove Legacy Integration',
-    );
-    if (choice !== 'Remove Legacy Integration') return;
-    const integration = new Integration(vscode, context);
-    if (removeNotify) await integration.remove();
-    else await integration.cleanupLegacy();
-    await vscode.window.showInformationMessage(
-      'Legacy integration cleaned up. Restart Codex to reload its configuration.',
-    );
-  }
   function diagnostics() {
     output.appendLine(
       JSON.stringify(
@@ -338,17 +265,19 @@ async function activate(context) {
   }
   const commands = {
     'codexActivity.show': () => vscode.commands.executeCommand('codexActivity.panel.focus'),
-    'codexActivity.installProjectHooks': install,
-    'codexActivity.removeProjectHooks': removeProjectHooks,
+    'codexActivity.repair': () => repair.run(),
+    // Keep old keybindings callable without contributing palette entries.
+    'codexActivity.installProjectHooks': () => repair.run(),
+    'codexActivity.removeProjectHooks': () => repair.run('remove'),
     'codexActivity.acknowledge': acknowledge,
     'codexActivity.chooseScope': chooseScope,
     'codexActivity.diagnostics': diagnostics,
     'codexActivity.openHooks': openHooks,
-    'codexCompletion.setup': install,
+    'codexCompletion.setup': () => repair.run(),
     'codexCompletion.acknowledge': acknowledge,
     'codexCompletion.diagnostics': diagnostics,
-    'codexCompletion.cleanupLegacy': () => legacy(false),
-    'codexCompletion.removeIntegration': () => legacy(true),
+    'codexCompletion.cleanupLegacy': () => repair.run(),
+    'codexCompletion.removeIntegration': () => repair.run(),
   };
   for (const [id, action] of Object.entries(commands))
     context.subscriptions.push(vscode.commands.registerCommand(id, () => guarded(action)));
@@ -383,7 +312,7 @@ async function activate(context) {
           'Review Hook Setup',
           'Not Now',
         );
-        if (choice === 'Review Hook Setup') await install();
+        if (choice === 'Review Hook Setup') await repair.run();
         else await context.workspaceState.update(key, true);
       }),
     1200,

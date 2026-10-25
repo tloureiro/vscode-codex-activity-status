@@ -6,7 +6,6 @@ const os = require('node:os');
 const path = require('node:path');
 const {
   Integration,
-  installOwnedNotify,
   removeOwnedNotify,
   removeLegacyJsonHooks,
   removeLegacyTomlHooks,
@@ -49,13 +48,12 @@ function fixture(t) {
   };
 }
 
-test('owned notify block round-trips without altering surrounding Codex config', () => {
-  const original = 'model = "gpt-5"\n\n[features]\nfoo = true\n';
-  const installed = installOwnedNotify(original, '/tmp/notifier');
-  assert.equal(installed.conflict, false);
-  assert.match(installed.text, /notify = \["\/tmp\/notifier"\]/);
-  assert.equal(removeOwnedNotify(installed.text).replace(/^\n+/, ''), original);
-  assert.equal(installOwnedNotify('notify = ["mine"]\n', '/tmp/notifier').conflict, true);
+test('both generations of owned notify blocks are removed without touching custom notify', () => {
+  const surrounding = 'notify = ["mine"]\n\n[features]\nfoo = true\n';
+  for (const marker of ['codex-completion', 'codex-activity-status completion']) {
+    const block = `# BEGIN ${marker} notifier\nnotify = ["/tmp/notifier"]\n# END ${marker} notifier\n`;
+    assert.equal(removeOwnedNotify(block + surrounding), surrounding);
+  }
 });
 
 test('legacy TOML cleanup removes the recognized sound and state but preserves other hooks', () => {
@@ -86,7 +84,7 @@ test('legacy JSON cleanup preserves unrelated hook handlers', () => {
   assert.match(result.text, /my-custom-hook/);
 });
 
-test('migration restores the old executable setting, removes legacy hooks, and installs notify', async (t) => {
+test('cleanup restores the old executable setting and removes all legacy generations', async (t) => {
   const f = fixture(t);
   fs.mkdirSync(f.home, { recursive: true });
   fs.writeFileSync(
@@ -102,26 +100,34 @@ test('migration restores the old executable setting, removes legacy hooks, and i
     had: true,
     previous: '/custom/codex',
   });
-  const removed = await f.integration.migrate();
+  fs.appendFileSync(
+    f.integration.config,
+    '\n# BEGIN codex-completion notifier\nnotify = ["old"]\n# END codex-completion notifier\n',
+  );
+  for (const file of [f.integration.launcher, f.integration.notifier])
+    fs.writeFileSync(file, 'old helper');
+  const plan = f.integration.plan();
+  assert.equal(plan.needed, true);
+  const removed = await f.integration.remove(plan);
   assert.equal(removed.proxy, true);
   assert.deepEqual(removed.hooks, [legacySound]);
   assert.equal(f.values.get('cliExecutable'), '/custom/codex');
   assert.equal(fs.existsSync(oldProxy), false);
   const config = fs.readFileSync(f.integration.config, 'utf8');
   assert.doesNotMatch(config, /Sosumi|\[\[hooks\.Stop/);
-  assert.match(config, /BEGIN codex-completion notifier/);
-  assert.equal(f.integration.status().code, 'ready');
+  assert.doesNotMatch(config, /BEGIN codex-completion notifier/);
+  assert.equal(f.integration.plan().needed, false);
   await f.integration.remove();
   assert.doesNotMatch(fs.readFileSync(f.integration.config, 'utf8'), /notify|codex-completion/);
   assert.equal(fs.existsSync(f.integration.launcher), false);
 });
 
-test('a custom notify command is never overwritten', (t) => {
+test('a custom notify command is preserved by cleanup', async (t) => {
   const f = fixture(t);
   fs.mkdirSync(f.home, { recursive: true });
   fs.writeFileSync(f.integration.config, 'notify = ["my-command"]\n');
-  assert.equal(f.integration.status().code, 'conflict');
-  assert.throws(() => f.integration.ensure(), /custom notify/);
+  assert.equal(f.integration.plan().needed, false);
+  await f.integration.remove();
   assert.equal(fs.readFileSync(f.integration.config, 'utf8'), 'notify = ["my-command"]\n');
 });
 
@@ -140,4 +146,29 @@ test('legacy cleanup leaves a user replacement executable untouched', async (t) 
   assert.equal(removed.proxy, false);
   assert.equal(f.values.get('cliExecutable'), '/my/current/codex');
   assert.equal(fs.existsSync(oldProxy), false);
+});
+
+test('cleanup refuses stale plans, malformed JSON and symlinked files before changing configuration', async (t) => {
+  const f = fixture(t);
+  fs.mkdirSync(f.home);
+  const original = `[[hooks.Stop]]\n[[hooks.Stop.hooks]]\ncommand = "${legacySound}"\n`;
+  fs.writeFileSync(f.integration.config, original);
+  const plan = f.integration.plan();
+  fs.appendFileSync(f.integration.config, '\n# changed during review\n');
+  await assert.rejects(f.integration.remove(plan), /changed during confirmation/);
+  assert.match(fs.readFileSync(f.integration.config, 'utf8'), /Sosumi/);
+  fs.writeFileSync(f.integration.hooksJson, '{malformed');
+  assert.throws(() => f.integration.plan(), SyntaxError);
+  assert.match(fs.readFileSync(f.integration.config, 'utf8'), /Sosumi/);
+  fs.unlinkSync(f.integration.hooksJson);
+  fs.symlinkSync(f.integration.config, f.integration.hooksJson);
+  assert.throws(() => f.integration.plan(), /symlinks/);
+  assert.match(fs.readFileSync(f.integration.config, 'utf8'), /Sosumi/);
+});
+
+test('a legacy-looking command outside a hook table is preserved', () => {
+  const input = `[mcp_servers.personal]\ncommand = "codex-activity-helper"\n\n[[hooks.Stop]]\n[[hooks.Stop.hooks]]\ncommand = "${legacySound}"\n`;
+  const result = removeLegacyTomlHooks(input);
+  assert.match(result.text, /command = "codex-activity-helper"/);
+  assert.doesNotMatch(result.text, /Sosumi/);
 });

@@ -9,7 +9,7 @@ It is not an executable proxy, transport interceptor or private-state observer.
 The installer prepares a read-only plan, checks an independent Node.js 18+
 executable, and asks for per-project consent. Cancelling does not create project
 files. An existing `.codex/hooks.json` without our ownership manifest is refused.
-An edited installation is also refused rather than overwritten. Files and
+An edited installation is also refused rather than overwritten. Missing owned files can be restored when the ownership manifest remains intact. Files and
 directories used for installation must not be symlinks. Changes during review
 invalidate the plan.
 
@@ -114,10 +114,27 @@ runtime collections. It starts hidden, setup never opens it, and events do not
 force it into view. The strip continues working with the panel closed. Users
 control panel location/height and whether its tab remains selected.
 
-Startup performs no migration. Recognized older proxy/hook/notify cleanup remains
-available only through explicit legacy commands with a separate confirmation.
+Startup performs no migration. **Codex Activity: Repair or Set Up** runs the
+shared `src/repair.js` flow: inspect project ownership and legacy targets, prepare
+read-only plans, then ask for one explicit confirmation. Repair installs/updates
+the selected project's hooks and cleans recognized old proxy/hook/notify entries
+and helper files. It never installs the old notify integration. The same dialog
+offers project removal, hook-file review and legacy-only cleanup. Without a local
+project, legacy-only cleanup remains available. Old command IDs forward to this
+flow but are absent from the command palette.
+
+Plans are rechecked after confirmation. A changed hook, helper, manifest, ignore
+file, legacy configuration or executable setting aborts the corresponding repair.
+Malformed legacy JSON and symlinked cleanup files are refused before writes.
+Edited/unowned project files require manual review; they do not prevent choosing
+legacy-only cleanup. Cleanup and installation span separate files and VS Code
+storage; they are not a cross-file transaction. If a later operation fails, its
+error is surfaced and running repair again reinspects the remaining state.
+
 Unrelated user configuration is preserved. Existing 0.3 notifier configuration
-is not made self-contained retroactively or silently removed.
+changes only after explicit repair/cleanup consent. Codex trust is never granted
+or removed by this flow. Deprecated completion-only settings and the unused color
+contribution have been removed; they had no effect on the activity runtime.
 
 Sources: [official hooks](https://learn.chatgpt.com/docs/hooks), matching snapshots
 in [SOURCES.md](SOURCES.md), and [live feasibility](HOOK-FEASIBILITY.md).

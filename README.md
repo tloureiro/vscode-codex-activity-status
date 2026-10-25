@@ -20,7 +20,7 @@ observed conversation, or aggregate all conversations in that project.
 ./install.sh
 ```
 
-Reload VS Code, then run **Codex Activity: Install or Update Project Hooks**.
+Reload VS Code, then run **Codex Activity: Repair or Set Up**.
 The confirmation explains the exact project files being added. Setup requires
 an independently installed Node.js 18+ runtime; it detects common locations or
 uses `codexActivity.nodePath`.
@@ -41,7 +41,7 @@ your Codex user configuration. Codex manages trust separately and may write its
 own trust records there. Both project trust and hook trust are required.
 
 If an older installation shows “Hook 1” through “Hook 7”, run **Codex Activity:
-Install or Update Project Hooks** after updating the extension. Confirm the project
+Repair or Set Up** after updating the extension. Confirm the project
 update to add the labels, then review the updated definitions in Codex settings →
 Hooks. Changed definitions may require approval again. CLI users can use `/hooks`.
 
@@ -76,17 +76,29 @@ ownership. Use **Choose Project or Conversation** to select the displayed scope.
 
 ## Removal and upgrades
 
-**Codex Activity: Remove Project Hooks** confirms removal of unchanged files owned
-by this extension. Edited/unrelated files are preserved; ignore rules and Codex
-trust records remain. Restart the Codex chat after installation/removal. Helper
-updates also require an explicit action; edited installations are not repaired
-silently.
+Run **Codex Activity: Repair or Set Up** for installation, missing-file recovery,
+helper/runtime updates and old integration cleanup. One reviewed confirmation
+repairs the selected project and removes recognized legacy notify blocks, TOML/JSON
+hooks, sound hooks, proxy overrides and old helper files. Startup never migrates
+configuration. Unowned or edited project files require manual review; they are
+never overwritten. Codex hook trust remains a separate review.
 
-Version 0.4 does not install the old completion-only `notify` integration and
-does not automatically clean up previous configuration. If upgrading from 0.3,
-the old notifier may remain until you explicitly run **Codex Activity: Remove
-Legacy Completion Integration**. The legacy proxy/hooks cleanup command also
-remains available behind confirmation.
+The same dialog offers **Remove Project Hooks** and, when legacy artifacts exist,
+**Clean Up Legacy Only**. Removal preserves edited/unrelated files, ignore rules
+and Codex trust records. Restart the Codex chat after changes. Legacy-only cleanup
+also works without an open project.
+
+The command palette has **5 actions**:
+
+- **Codex Activity: Repair or Set Up**
+- **Codex Activity: Show Panel**
+- **Codex Activity: Acknowledge**
+- **Codex Activity: Choose Project or Conversation**
+- **Codex Activity: Show Diagnostics**
+
+Old command IDs remain callable for saved keybindings but add no palette entries.
+The unused completion-only settings and color contribution have been removed.
+See the [artifact review](https://github.com/tloureiro/vscode-codex-activity-status/blob/HEAD/docs/MAINTENANCE.md) for the pruning decisions.
 
 ## Settings
 
@@ -121,5 +133,5 @@ The live test uses installed applications in a disposable profile, a localhost
 fake model and an OS sandbox. It needs permission to open that profile and listen
 on localhost. It makes no real model requests and changes no normal configuration.
 
-See [integration](docs/INTEGRATION.md), [validation](docs/VALIDATION.md),
-[source references](docs/SOURCES.md), and [hook feasibility](docs/HOOK-FEASIBILITY.md).
+See [integration](https://github.com/tloureiro/vscode-codex-activity-status/blob/HEAD/docs/INTEGRATION.md), [validation](https://github.com/tloureiro/vscode-codex-activity-status/blob/HEAD/docs/VALIDATION.md),
+[source references](https://github.com/tloureiro/vscode-codex-activity-status/blob/HEAD/docs/SOURCES.md), and [hook feasibility](https://github.com/tloureiro/vscode-codex-activity-status/blob/HEAD/docs/HOOK-FEASIBILITY.md).

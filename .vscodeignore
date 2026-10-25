@@ -2,6 +2,8 @@
 .codex/**
 sources/**
 research/**
+docs/**
+AGENTS.md
 .gitignore
 .vscode/**
 .vscode-test/**

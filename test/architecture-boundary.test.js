@@ -49,3 +49,21 @@ test('legacy knowledge is isolated to removal logic', () => {
   assert.match(integration, /restoreProxy/);
   assert.doesNotMatch(integration, /require\(['"]node:(?:net|child_process)['"]\)/);
 });
+
+test('palette has five distinct actions and legacy code can only remove integrations', () => {
+  assert.deepEqual(manifest.contributes.commands.map((entry) => entry.command).sort(), [
+    'codexActivity.acknowledge',
+    'codexActivity.chooseScope',
+    'codexActivity.diagnostics',
+    'codexActivity.repair',
+    'codexActivity.show',
+  ]);
+  const integration = fs.readFileSync(path.join(sourceDirectory, 'integration.js'), 'utf8');
+  assert.doesNotMatch(integration, /installOwnedNotify|launcherScript|ensure\(\)|migrate\(\)/);
+  assert.equal(
+    Object.keys(manifest.contributes.configuration.properties).some((key) =>
+      key.startsWith('codexCompletion.'),
+    ),
+    false,
+  );
+});

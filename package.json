@@ -2,7 +2,7 @@
   "name": "codex-activity-status",
   "displayName": "Codex Activity",
   "description": "A colored status-bar beacon for Codex activity, with opt-in project hooks and an optional detail panel.",
-  "version": "0.4.3",
+  "version": "0.4.4",
   "publisher": "tloureiro",
   "license": "MIT",
   "engines": {
@@ -61,12 +61,8 @@
         "title": "Codex Activity: Show Panel"
       },
       {
-        "command": "codexActivity.installProjectHooks",
-        "title": "Codex Activity: Install or Update Project Hooks"
-      },
-      {
-        "command": "codexActivity.removeProjectHooks",
-        "title": "Codex Activity: Remove Project Hooks"
+        "command": "codexActivity.repair",
+        "title": "Codex Activity: Repair or Set Up"
       },
       {
         "command": "codexActivity.acknowledge",
@@ -77,32 +73,8 @@
         "title": "Codex Activity: Choose Project or Conversation"
       },
       {
-        "command": "codexActivity.openHooks",
-        "title": "Codex Activity: Review Project Hook File"
-      },
-      {
         "command": "codexActivity.diagnostics",
         "title": "Codex Activity: Show Diagnostics"
-      },
-      {
-        "command": "codexCompletion.setup",
-        "title": "Codex Activity: Set Up (Legacy Command Alias)"
-      },
-      {
-        "command": "codexCompletion.cleanupLegacy",
-        "title": "Codex Completion: Remove Legacy Hooks and Proxy"
-      },
-      {
-        "command": "codexCompletion.removeIntegration",
-        "title": "Codex Activity: Remove Legacy Completion Integration"
-      },
-      {
-        "command": "codexCompletion.acknowledge",
-        "title": "Codex Completion: Acknowledge"
-      },
-      {
-        "command": "codexCompletion.diagnostics",
-        "title": "Codex Completion: Show Diagnostics"
       }
     ],
     "viewsContainers": {
@@ -150,33 +122,9 @@
           "default": "",
           "scope": "machine",
           "description": "Optional absolute path to Node.js 18+ for installing the independent project helper. Empty detects a local Node installation. Changing this requires explicitly updating project hooks."
-        },
-        "codexCompletion.enabled": {
-          "type": "boolean",
-          "default": true,
-          "description": "Legacy completion-only setting.",
-          "deprecationMessage": "Version 0.4 uses codexActivity.enabled and opt-in project hooks. Existing notify configuration is not removed automatically."
-        },
-        "codexCompletion.autoAcknowledge": {
-          "type": "boolean",
-          "default": true,
-          "description": "Legacy completion-only acknowledgement setting.",
-          "deprecationMessage": "Use codexActivity.autoAcknowledge."
         }
       }
-    },
-    "colors": [
-      {
-        "id": "codexCompletion.finishedForeground",
-        "description": "Foreground for an unread Codex completion.",
-        "defaults": {
-          "dark": "#C8B7FF",
-          "light": "#5B3F99",
-          "highContrast": "#FFFFFF",
-          "highContrastLight": "#000000"
-        }
-      }
-    ]
+    }
   },
   "repository": {
     "type": "git",

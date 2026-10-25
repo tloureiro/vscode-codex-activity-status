@@ -10,15 +10,10 @@ const LEGACY_START = '# BEGIN codex-activity-status completion notifier';
 const LEGACY_END = '# END codex-activity-status completion notifier';
 const LEGACY_SOUND = '/usr/bin/afplay /System/Library/Sounds/Sosumi.aiff';
 
-const quote = (value) => "'" + value.replace(/'/g, "'\\''") + "'";
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function codexHome(env = process.env) {
   return env.CODEX_HOME ? path.resolve(env.CODEX_HOME) : path.join(os.homedir(), '.codex');
-}
-
-function ownedNotifyBlock(launcher) {
-  return `${START}\nnotify = ${JSON.stringify([launcher])}\n${END}\n`;
 }
 
 function markerPattern(start = START, end = END) {
@@ -30,31 +25,6 @@ function markerPattern(start = START, end = END) {
 
 function removeOwnedNotify(text) {
   return text.replace(markerPattern(), '').replace(markerPattern(LEGACY_START, LEGACY_END), '');
-}
-
-function firstTableOffset(text) {
-  const match = /^\s*\[{1,2}[^\n]+/m.exec(text);
-  return match ? match.index : text.length;
-}
-
-function findRootNotify(text) {
-  const root = removeOwnedNotify(text).slice(0, firstTableOffset(removeOwnedNotify(text)));
-  return /^[ \t]*notify[ \t]*=/m.test(root);
-}
-
-function installOwnedNotify(text, launcher) {
-  const without = removeOwnedNotify(text);
-  if (findRootNotify(without)) return { conflict: true, text };
-  const offset = firstTableOffset(without);
-  const before = without
-    .slice(0, offset)
-    .replace(/[ \t]+$/gm, '')
-    .replace(/\n*$/, '');
-  const after = without.slice(offset).replace(/^\n*/, '');
-  return {
-    conflict: false,
-    text: `${before}${before ? '\n\n' : ''}${ownedNotifyBlock(launcher)}${after ? `\n${after}` : ''}`,
-  };
 }
 
 function tableSegments(text) {
@@ -93,6 +63,7 @@ function removeLegacyTomlHooks(text) {
   for (let index = 0; index < segments.length; index++) {
     const segment = segments[index];
     const command = commandFromSegment(segment);
+    if (!/^\[\[hooks\.[^.\]]+\.hooks\]\]$/.test(segment.header)) continue;
     if (!command || !isLegacyHookCommand(command)) continue;
     remove.add(index);
     const eventMatch = /^\[\[hooks\.([^.\]]+)\.hooks\]\]$/.exec(segment.header);
@@ -190,9 +161,6 @@ class Integration {
     this.config = path.join(home, 'config.toml');
     this.hooksJson = path.join(home, 'hooks.json');
   }
-  launcherScript() {
-    return `#!/bin/sh\nELECTRON_RUN_AS_NODE=1 exec ${quote(process.execPath)} ${quote(this.notifier)} "$@"\n`;
-  }
   readConfig() {
     try {
       return fs.readFileSync(this.config, 'utf8');
@@ -219,38 +187,57 @@ class Integration {
     }
     return { ownedLauncher, hooks: [...new Set(hooks)] };
   }
-  status() {
-    const official = this.vscode.extensions.getExtension('openai.chatgpt');
-    if (!official)
-      return { code: 'missingCodex', detail: 'Install the official Codex extension first.' };
-    if (process.platform !== 'darwin' || this.vscode.env.remoteName)
-      return { code: 'unsupported', detail: 'Completion monitoring supports local macOS VS Code.' };
-    const text = this.readConfig();
+  plan() {
+    // Snapshot every cleanup target before consent, including absent files.
+    const files = [
+      this.config,
+      this.hooksJson,
+      this.launcher,
+      this.notifier,
+      path.join(this.directory, 'codex-activity-proxy'),
+    ];
+    const saved = this.context.globalState.get('bridge');
+    if (saved?.launcher && path.dirname(saved.launcher) === this.directory)
+      files.push(saved.launcher);
+    const before = [...new Set(files)].map((file) => {
+      for (const candidate of [path.dirname(file), file]) {
+        try {
+          if (fs.lstatSync(candidate).isSymbolicLink())
+            throw new Error('Legacy cleanup paths must not be symlinks.');
+        } catch (error) {
+          if (error.code !== 'ENOENT') throw error;
+        }
+      }
+      try {
+        if (!fs.lstatSync(file).isFile()) throw new Error('Legacy cleanup expects ordinary files.');
+        return [file, fs.readFileSync(file, 'utf8')];
+      } catch (error) {
+        if (error.code !== 'ENOENT') throw error;
+        return [file, null];
+      }
+    });
+    // Parse both formats before performing any cleanup.
+    const config = this.readConfig();
+    const json = before.find(([file]) => file === this.hooksJson)[1];
+    if (json !== null) removeLegacyJsonHooks(json);
     const legacy = this.legacy();
-    if (findRootNotify(text))
-      return {
-        code: 'conflict',
-        detail: `Codex already has a custom notify command. It was left unchanged.${legacy.ownedLauncher || legacy.hooks.length ? ' Legacy cleanup is available from this action.' : ''}`,
-      };
-    if (legacy.ownedLauncher || legacy.hooks.length)
-      return {
-        code: 'migration',
-        detail: `Legacy activity integration detected (${legacy.ownedLauncher ? 'proxy' : ''}${legacy.ownedLauncher && legacy.hooks.length ? ', ' : ''}${legacy.hooks.length ? `${legacy.hooks.length} hook${legacy.hooks.length === 1 ? '' : 's'}` : ''}).`,
-      };
-    const expected = ownedNotifyBlock(this.launcher).trim();
-    const configured = text.includes(expected);
-    let helper = false;
-    try {
-      helper =
-        fs.readFileSync(this.launcher, 'utf8') === this.launcherScript() &&
-        fs.readFileSync(this.notifier, 'utf8') ===
-          fs.readFileSync(path.join(this.context.extensionPath, 'src', 'notifier.js'), 'utf8');
-    } catch {
-      // Setup repairs missing or outdated helpers.
-    }
-    return configured && helper
-      ? { code: 'ready', detail: 'Codex completion notifications are connected.' }
-      : { code: configured ? 'repair' : 'setup', detail: 'Set up completion-only notifications.' };
+    const notify = removeOwnedNotify(config) !== config;
+    const artifacts = before.filter(
+      ([file, text]) => text !== null && path.dirname(file) === this.directory,
+    ).length;
+    return {
+      before,
+      bridge: JSON.stringify(saved),
+      executable: this.vscode.workspace.getConfiguration('chatgpt').inspect('cliExecutable')
+        ?.globalValue,
+      needed: Boolean(notify || legacy.ownedLauncher || legacy.hooks.length || artifacts || saved),
+      detail: `${legacy.hooks.length} legacy hook(s), ${notify ? 1 : 0} notify block, ${legacy.ownedLauncher ? 1 : 0} executable override, ${artifacts} old helper file(s).`,
+    };
+  }
+  check(plan) {
+    const current = this.plan();
+    if (JSON.stringify(current) !== JSON.stringify(plan))
+      throw new Error('Legacy integration changed during confirmation. Run repair again.');
   }
   async restoreProxy() {
     const c = this.vscode.workspace.getConfiguration('chatgpt');
@@ -307,24 +294,8 @@ class Integration {
     const hooks = this.removeLegacyHooks();
     return { proxy, hooks };
   }
-  ensure() {
-    fs.mkdirSync(this.directory, { recursive: true, mode: 0o700 });
-    fs.copyFileSync(path.join(this.context.extensionPath, 'src', 'notifier.js'), this.notifier);
-    fs.chmodSync(this.notifier, 0o600);
-    fs.writeFileSync(this.launcher, this.launcherScript(), { mode: 0o700 });
-    fs.chmodSync(this.launcher, 0o700);
-    const result = installOwnedNotify(this.readConfig(), this.launcher);
-    if (result.conflict) throw new Error('Codex already has a custom notify command.');
-    atomicWrite(this.config, result.text);
-  }
-  async migrate() {
-    if (findRootNotify(this.readConfig()))
-      throw new Error('Codex already has a custom notify command. It was left unchanged.');
-    const removed = await this.cleanupLegacy();
-    this.ensure();
-    return removed;
-  }
-  async remove() {
+  async remove(plan = this.plan()) {
+    this.check(plan);
     const removed = await this.cleanupLegacy();
     const text = this.readConfig();
     const next = removeOwnedNotify(text);
@@ -345,9 +316,7 @@ module.exports = {
   START,
   END,
   LEGACY_SOUND,
-  installOwnedNotify,
   removeOwnedNotify,
-  findRootNotify,
   legacyHookCommands,
   removeLegacyTomlHooks,
   removeLegacyJsonHooks,

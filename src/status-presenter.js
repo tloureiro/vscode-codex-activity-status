@@ -18,20 +18,18 @@ class StatusPresenter {
     this.item.command =
       !model.enabled || !model.project
         ? 'codexActivity.diagnostics'
-        : ['setup', 'repair'].includes(model.health.code)
-          ? 'codexActivity.installProjectHooks'
-          : model.health.code === 'conflict'
-            ? 'codexActivity.openHooks'
-            : model.summary.unread > 0
-              ? 'codexActivity.acknowledge'
-              : model.summary.connected
-                ? 'chatgpt.openSidebar'
-                : 'codexActivity.chooseScope';
+        : ['setup', 'repair', 'error', 'conflict'].includes(model.health.code)
+          ? 'codexActivity.repair'
+          : model.summary.unread > 0
+            ? 'codexActivity.acknowledge'
+            : model.summary.connected
+              ? 'chatgpt.openSidebar'
+              : 'codexActivity.chooseScope';
     const action =
       this.item.command === 'codexActivity.acknowledge'
         ? 'Click to acknowledge.'
-        : this.item.command === 'codexActivity.installProjectHooks'
-          ? 'Click to review project hook setup.'
+        : this.item.command === 'codexActivity.repair'
+          ? 'Click to review repair and setup.'
           : this.item.command === 'chatgpt.openSidebar'
             ? 'Click to open Codex.'
             : 'Click for details.';
