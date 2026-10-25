@@ -103,11 +103,17 @@ once no live receiver remains. No background monitoring daemon is installed.
 
 ```sh
 npm ci
-npm run validate
+npm run ci:local
 npm run sources:update
 npm run test:vscode
-npm run package
 ```
+
+Use Node 22 (see `.node-version`). `npm run ci:local` rehearses CI in a disposable
+copy of the current public files: fresh dependency installation, validation and
+VSIX packaging. It includes uncommitted changes and uses no Git writes.
+For a faster check with existing dependencies, run `npm run validate`.
+Both commands validate GitHub Actions syntax and expressions with a pinned
+actionlint release, downloaded on first use.
 
 The live test uses installed applications in a disposable profile, a localhost
 fake model and an OS sandbox. It needs permission to open that profile and listen

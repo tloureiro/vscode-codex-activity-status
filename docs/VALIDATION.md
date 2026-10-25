@@ -1,12 +1,33 @@
 # Validation
 
 ```sh
+npm run ci:local
 npm run validate
 npm run test:vscode
 npm run package
 ```
 
-Local validation covers syntax, formatting, lint, public-file hygiene, no private
+Before handing off changes, use Node 22 from `.node-version` and run
+`npm run ci:local` on macOS. It copies tracked and non-ignored untracked files
+through the approved read-only wrapper into a temporary directory, snapshots
+that clean copy, then runs the same `npm ci`, `npm run validate` and
+`npm run package` commands as CI. Deleted files stay deleted; ignored local files
+are excluded. The original dependencies and build output are left alone. A
+successful rehearsal removes its copy; a failure preserves it for inspection.
+This exercises the current working files, not just the last commit. It does not
+emulate GitHub's hosted service, repository policies or action downloads.
+
+`npm run validate` includes `npm run check:workflows`, which uses official
+actionlint 1.7.12 binaries with pinned archive SHA-256 checksums. The initial run
+requires network access, `curl` and `tar`; the archive is cached under ignored
+`node_modules/.cache/`. macOS and Linux on x64/arm64 are supported by this check.
+Optional ShellCheck and Pyflakes integrations are disabled for consistent results.
+The checker validates workflow syntax, keys and expression context availability;
+for example, `runner.temp` is invalid in job-level `env`. The workflow now derives
+the manifest location from `$RUNNER_TEMP` inside a running step and exports it via
+`$GITHUB_ENV`. Workflow validation is local and requires no GitHub credentials.
+
+Local validation covers syntax, workflow expressions, formatting, lint, public-file hygiene, no private
 interception or appearance mutation, setup consent/cancellation, ownership and
 preservation of external files, shell quoting, metadata-only output, missing
 receivers/helpers, stale and out-of-order events, terminal confirmation and

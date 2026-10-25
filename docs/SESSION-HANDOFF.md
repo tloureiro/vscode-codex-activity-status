@@ -3,6 +3,31 @@
 Updated October 24, 2026. Read this with `AGENTS.md` before resuming. The user is
 ending the session; do not assume the copy/paste Git commands have been executed.
 
+## Local CI validation follow-up
+
+The user requested local checks to avoid repeated GitHub failures. The latest
+failed run started no jobs. Local actionlint reproduced an invalid `runner.temp`
+expression in job-level `env`; the workflow now derives the manifest path inside
+a step from `$RUNNER_TEMP` and exports it with `$GITHUB_ENV`.
+
+`npm run validate` now includes pinned, checksum-verified actionlint 1.7.12.
+`npm run ci:local` uses the approved wrapper to copy current public candidates,
+including uncommitted/untracked changes, into a disposable directory and runs the
+CI sequence: snapshot, fresh `npm ci`, validation, packaging. Both CI and the
+rehearsal use Node 22 from `.node-version`; the local default was Node 24, so this
+session used a temporary standalone Node 22.23.4 runtime. The rehearsal requires
+macOS and network access for fresh dependencies and the validator download.
+Successful copies are removed; failed copies remain local for inspection.
+
+Validation: the fresh Node 22 rehearsal passed all **32 tests**, syntax, lint,
+formatting, workflow expressions, public-file checks and VSIX packaging. A
+negative fixture confirmed that the new checker rejects the original invalid
+expression. `AGENTS.md` now requires this rehearsal before future handoffs.
+The live VS Code fixture was not rerun for these CI-only changes. This is local
+verification; the updated workflow has not run on GitHub. No Git writes were
+performed. The older publication review and copy/paste commands below do not
+cover these new changes.
+
 ## Hook review labels follow-up
 
 Version **0.4.2** adds descriptive `statusMessage` labels to all seven project hooks,

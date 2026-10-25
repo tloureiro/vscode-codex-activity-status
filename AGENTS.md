@@ -14,6 +14,15 @@ Ordinary implementation/review requests and saved command approvals are not that
 permission. Copy/paste commands in handoff documents are not authorization to run
 them. Never stage, commit or push on the basis of this session's publication review.
 
+# Validation before handoff
+
+Run `npm run ci:local` on macOS with the Node version in `.node-version` before
+handing off changes. It rehearses fresh installation, validation (including
+GitHub Actions workflow expressions), and packaging in a disposable copy of the
+current public files, using the approved wrapper without Git writes. Report any
+failure or unavailable prerequisite explicitly; do not claim GitHub CI passed
+from a local rehearsal. `npm run validate` is the faster check during editing.
+
 # Upstream reference sources
 
 For Codex or VS Code integration research, read `docs/SOURCES.md` and

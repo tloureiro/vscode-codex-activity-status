@@ -11,6 +11,7 @@ dist/**
 coverage/**
 .github/**
 .editorconfig
+.node-version
 .prettier*
 eslint.config.*
 .env*
