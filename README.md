@@ -27,7 +27,9 @@ uses `codexActivity.nodePath`.
 
 Setup creates `.codex/hooks.json` and a standalone helper under
 `.codex/codex-activity/`, adding rules to `.codex/.gitignore` so the new hook file
-and helper stay local. No Git commands or Git metadata edits are involved. An
+and helper stay local. The ignore file also ignores itself. Setup stores local
+enablement in VS Code extension storage and does not create `.vscode/settings.json`
+or change workspace settings. No Git commands or Git metadata edits are involved. An
 existing hook file is left untouched: this first version refuses to overwrite or
 merge unrelated hooks. Ignore rules cannot untrack already tracked files.
 

@@ -15,16 +15,24 @@ invalidate the plan.
 
 Installed files:
 
-| File                                         | Purpose                                                     |
-| -------------------------------------------- | ----------------------------------------------------------- |
-| `.codex/hooks.json`                          | Seven async command registrations, timeout 1 second         |
-| `.codex/codex-activity/observer.js`          | Standalone helper, copied from this extension               |
-| `.codex/codex-activity/observer-config.json` | Canonical project and private event-storage path            |
-| `.codex/codex-activity/installation.json`    | Ownership, checksums and selected runtime                   |
-| `.codex/.gitignore`                          | Rules ignoring the hook file and installed helper directory |
+| File                                         | Purpose                                                             |
+| -------------------------------------------- | ------------------------------------------------------------------- |
+| `.codex/hooks.json`                          | Seven async command registrations, timeout 1 second                 |
+| `.codex/codex-activity/observer.js`          | Standalone helper, copied from this extension                       |
+| `.codex/codex-activity/observer-config.json` | Canonical project and private event-storage path                    |
+| `.codex/codex-activity/installation.json`    | Ownership, checksums and selected runtime                           |
+| `.codex/.gitignore`                          | Rules ignoring itself, the hook file and installed helper directory |
 
 The registration is published last. Files use atomic replacement; new helper,
-configuration and event files are private. Existing ignore text is preserved.
+configuration and event files are private. Existing ignore text is preserved. The ignore file includes a rule for itself,
+so a fresh installation leaves no generated untracked files. Older owned
+installations missing that rule require an explicit project update. Unrelated
+`.codex/` files remain visible to Git.
+
+If monitoring was disabled, consenting to hook setup enables it using VS Code
+`workspaceState`, outside the project. This survives reload without writing
+`.vscode/settings.json` or a `.code-workspace` file. A subsequent change to
+`codexActivity.enabled` clears this local override and applies the setting.
 Removal unregisters unchanged hooks before deleting unchanged owned helper files,
 preserves unknown files and leaves ignore rules. No Git commands or metadata
 changes are required. Ignore rules cannot untrack pre-existing tracked files.

@@ -16,7 +16,8 @@ const HOOK_LABELS = {
   Stop: 'Codex Activity — turn stopped; check completion',
   Interrupt: 'Codex Activity — turn interrupted',
 };
-const IGNORE = '# Codex Activity (local installation)\n/hooks.json\n/codex-activity/\n';
+const IGNORE =
+  '# Codex Activity (local installation)\n/hooks.json\n/codex-activity/\n/.gitignore\n';
 const quote = (value) => "'" + value.replace(/'/g, "'\\''") + "'";
 const hash = (value) => crypto.createHash('sha256').update(value).digest('hex');
 function read(file) {

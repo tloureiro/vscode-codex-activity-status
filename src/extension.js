@@ -8,16 +8,16 @@ const { ActivityView, presentation } = require('./activity-view');
 const { StatusPresenter } = require('./status-presenter');
 const { Integration } = require('./integration');
 let controller;
-function settings() {
-  const config = vscode.workspace.getConfiguration('codexActivity');
-  return {
-    enabled: config.get('enabled', true),
-    autoAcknowledge: config.get('autoAcknowledge', false),
-    nodePath: config.get('nodePath', ''),
-    beaconWidth: config.get('beaconWidth', 24),
-  };
-}
 async function activate(context) {
+  function settings() {
+    const config = vscode.workspace.getConfiguration('codexActivity');
+    return {
+      enabled: context.workspaceState.get('activityEnabled', config.get('enabled', true)),
+      autoAcknowledge: config.get('autoAcknowledge', false),
+      nodePath: config.get('nodePath', ''),
+      beaconWidth: config.get('beaconWidth', 24),
+    };
+  }
   const output = vscode.window.createOutputChannel('Codex Activity');
   const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 1000);
   status.name = 'Codex Activity';
@@ -216,7 +216,7 @@ async function activate(context) {
         `Install activity hooks for ${project.name}?`,
         {
           modal: true,
-          detail: `Creates or updates this extension's .codex/hooks.json and .codex/codex-activity/ helper, and adds ignore rules to .codex/.gitignore. Existing unrelated hook files are never overwritten. Git ignores do not untrack previously tracked files.\n\nSeven background hooks send only activity metadata to local storage. Node runtime: ${node}. No proxy, executable override, or automatic changes to your Codex user configuration.\n\nAfter installation, open Codex settings → Hooks in the VS Code Codex sidebar. Review this project's seven hooks labelled "Codex Activity — …" and allow them, then start a new chat. Updated definitions may need approval again. Codex manages that separate trust configuration.`,
+          detail: `Creates or updates this extension's .codex/hooks.json and .codex/codex-activity/ helper, and adds ignore rules to .codex/.gitignore, including the ignore file itself. Enables activity locally in VS Code storage without writing workspace settings. Existing unrelated hook files are never overwritten. Git ignores do not untrack previously tracked files.\n\nSeven background hooks send only activity metadata to local storage. Node runtime: ${node}. No proxy, executable override, or automatic changes to your Codex user configuration.\n\nAfter installation, open Codex settings → Hooks in the VS Code Codex sidebar. Review this project's seven hooks labelled "Codex Activity — …" and allow them, then start a new chat. Updated definitions may need approval again. Codex manages that separate trust configuration.`,
         },
         'Install Project Hooks',
       );
@@ -224,10 +224,7 @@ async function activate(context) {
       if (!vscode.workspace.isTrusted)
         throw new Error('Workspace trust changed. Setup was cancelled.');
       project.hooks.install(plan);
-      if (!settings().enabled)
-        await vscode.workspace
-          .getConfiguration('codexActivity')
-          .update('enabled', true, vscode.ConfigurationTarget.Workspace);
+      if (!settings().enabled) await context.workspaceState.update('activityEnabled', true);
       await context.workspaceState.update(
         'activitySetupDismissed.' + hash(project.hooks.project).slice(0, 24),
         true,
@@ -357,9 +354,13 @@ async function activate(context) {
     context.subscriptions.push(vscode.commands.registerCommand(id, () => guarded(action)));
   context.subscriptions.push(
     vscode.workspace.onDidChangeWorkspaceFolders(refresh),
-    vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration('codexActivity')) refresh();
-    }),
+    vscode.workspace.onDidChangeConfiguration((event) =>
+      guarded(async () => {
+        if (event.affectsConfiguration('codexActivity.enabled'))
+          await context.workspaceState.update('activityEnabled', undefined);
+        if (event.affectsConfiguration('codexActivity')) refresh();
+      }),
+    ),
     vscode.window.onDidChangeWindowState((state) => {
       const returned = state.focused && !focused;
       focused = state.focused;

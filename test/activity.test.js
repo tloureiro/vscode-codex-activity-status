@@ -74,6 +74,26 @@ test('installation is planned without writes, ignored by default, and removed wi
   assert.equal(fs.existsSync(hooks.ignoreFile), true);
 });
 
+test('an existing installation missing the self-ignore rule requires consented repair', (t) => {
+  const { hooks } = fixture(t);
+  hooks.install(hooks.plan(process.execPath));
+  const legacy = '# Codex Activity (local installation)\n/hooks.json\n/codex-activity/\n';
+  const previous = '/personal-cache/\n' + legacy;
+  fs.writeFileSync(hooks.ignoreFile, previous);
+  const hooksBefore = fs.readFileSync(hooks.hooksFile);
+  assert.equal(hooks.status().code, 'repair');
+  const update = hooks.plan(process.execPath);
+  assert.equal(fs.readFileSync(hooks.ignoreFile, 'utf8'), previous, 'Planning writes nothing');
+  hooks.install(update);
+  const repaired = fs.readFileSync(hooks.ignoreFile, 'utf8');
+  assert.ok(repaired.startsWith(previous), 'Existing ignore rules are preserved');
+  assert.ok(repaired.split('\n').includes('/.gitignore'));
+  assert.deepEqual(fs.readFileSync(hooks.hooksFile), hooksBefore);
+  assert.equal(hooks.status().code, 'installed');
+  hooks.install(hooks.plan(process.execPath));
+  assert.equal(fs.readFileSync(hooks.ignoreFile, 'utf8'), repaired, 'Repeated setup is idempotent');
+});
+
 test('unlabelled owned hooks require an explicit update; planning preserves them and updating adds labels', (t) => {
   const { hooks } = fixture(t);
   const plan = hooks.plan(process.execPath);

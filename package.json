@@ -2,7 +2,7 @@
   "name": "codex-activity-status",
   "displayName": "Codex Activity",
   "description": "A colored status-bar beacon for Codex activity, with opt-in project hooks and an optional detail panel.",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "publisher": "tloureiro",
   "license": "MIT",
   "engines": {

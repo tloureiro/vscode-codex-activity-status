@@ -1,7 +1,36 @@
 # Session handoff
 
-Updated October 24, 2026. Read this with `AGENTS.md` before resuming. The user is
+Updated October 25, 2026. Read this with `AGENTS.md` before resuming. The user is
 ending the session; do not assume the copy/paste Git commands have been executed.
+
+## Generated project files follow-up
+
+Version **0.4.3** fixes two paths that left extension metadata visible to Git.
+The installed 0.4.2 hook setup wrote `codexActivity.enabled: true` to workspace
+settings when monitoring was disabled, potentially creating `.vscode/settings.json`
+or editing a `.code-workspace` file. Setup now stores consented local enablement
+in VS Code `workspaceState`; it survives reload, and a subsequent explicit
+`codexActivity.enabled` configuration change clears that override.
+
+The generated `.codex/.gitignore` now ignores itself as well as `hooks.json` and
+`codex-activity/`. Older installations lacking this rule report an update requirement;
+planning and startup do not rewrite them. Unrelated ignore text and Codex files
+are preserved. Existing real-project integrations were left unchanged. Specific
+local observations are recorded only in the ignored local handoff.
+
+Validation: Node 22.23.4 on macOS, all **34 tests**, syntax, lint, formatting,
+workflow and public-file checks, fresh `npm ci`, and VSIX packaging passed via
+`npm run ci:local`. The first sandboxed rehearsal could not resolve GitHub for
+the validator download; the approved network-enabled rerun passed. A disposable
+installation under this repository also passed actual `git-safe` ignore/status
+checks: all generated files ignored, unrelated Codex configuration visible, and
+removal leaves no generated untracked ignore file. Disabled-setup coverage checks
+cancellation, consent, reload and later explicit disabling without preference
+writes. The GUI fixture was not rerun for this change. Local rehearsal is not a
+GitHub CI result. The 0.4.3 package has not been installed in the normal profile;
+existing projects still need the normal explicit hook-update confirmation.
+No Git writes were performed. The current publication review and copy/paste
+commands are recorded below.
 
 ## Local CI validation follow-up
 
@@ -54,7 +83,7 @@ was present before this follow-up and was left unchanged.
 
 ## Current product decision
 
-Version **0.4.1** introduced the strip; **0.4.2** is the current packaged follow-up.
+Version **0.4.1** introduced the strip; **0.4.3** is the current packaged follow-up.
 The user approved a wide colored
 strip in our own existing public status-bar item, using block characters and
 foreground color. The default is 24 characters, configurable from 8 to 48.
@@ -137,41 +166,44 @@ from the VSIX; do not promote it to production by accident.
 
 ## Publication review and Git boundary
 
-The latest publication review is limited to the current uncommitted hook-label
-follow-up, not history or unrelated files. There were no staged changes. The
-reviewed set contains 13 changed tracked files, including this handoff and the
-root `.gitignore`. The sole initially untracked file, `.codex/.gitignore`, contains
-only generated local ignore rules; it is now explicitly ignored at the root.
-The existing local hook/helper files remain untouched and ignored. `.vscodeignore`
-excludes all `.codex/**` content from packages, and the rebuilt 0.4.2 VSIX was
-checked to contain no local `.codex/` files. The earlier intermediate package
-included local hook files and was replaced by this corrected build; do not use
-older packages as publication artifacts without separately inspecting them.
+October 25, 2026: the user requested a public-release privacy review limited to
+current staged, unstaged and untracked changes. The reviewed set is the nine
+modified tracked files listed in the command below. There are no staged or
+unignored untracked files. No history or unrelated source files were audited.
 
-No credentials, secret keys, personal contact details or machine-specific home
-paths were found in the reviewed additions or initially untracked file. The
-existing public extension identity and synthetic test fixture names are
-intentional. Build output, downloaded references and local logs remain ignored.
-This is a review of the current changes, not a certification of the repository's
-existing contents or history.
+A project-specific observation in the new handoff text was moved to ignored
+`sources/analysis/SESSION-HANDOFF.md`. No credentials, secret keys, personal
+contact details, machine-specific paths, private service endpoints or temporary
+research artifacts were found in the remaining changed content. The existing
+public extension identity and synthetic test data are intentional. Existing root
+ignore rules cover local hooks, workspace settings, references, build output,
+environment files and logs; no root `.gitignore` update was needed. The new
+project-installer self-ignore rule is part of the reviewed fix.
 
-No Git staging, commit, push, fetch, history scan, ref change or cleanup was
-authorized or performed. All Git reads must use the user's `git-safe` wrapper;
-never fall back to direct Git. A previous wrapper restriction blocked branch
-name inspection; this review does not retry or bypass it. The suggested push
-uses `HEAD` rather than an unverified branch name.
+The 0.4.3 VSIX excludes local `.codex/` and `.vscode/` files. The final Node 22
+macOS `npm run ci:local` rehearsal passed all 34 tests, validation and packaging.
+This is local verification, not a GitHub CI result; the GUI fixture was not rerun.
+The installed normal-profile version remains 0.4.2. Installing 0.4.3, reloading
+VS Code and confirming each project's hook update remain future product actions;
+this review did not install hooks, grant trust or clean up existing project files.
 
-Copy/paste commands for the reviewed files, from repository root:
+No staging, commit, push, fetch, history scan, ref change or Git cleanup was
+performed or authorized. The commands below are for the user to copy and paste.
+Do not infer that they were executed, and do not execute them in a future session
+without express permission for the specific operation and target. All Git reads
+must use the approved `git-safe` wrapper. No branch-name inspection was attempted;
+the push uses the current `HEAD` and existing `origin` remote.
+
+From the repository root, for this reviewed change set only:
 
 ```sh
-git add -- .gitignore .vscodeignore README.md \
-  docs/INTEGRATION.md docs/SESSION-HANDOFF.md install.sh \
-  package.json package-lock.json scripts/test-activity-vscode.js \
-  src/activity-view.js src/extension.js src/project-hooks.js test/activity.test.js
-git commit -m "Label Codex activity hooks and clarify trust setup"
+git add -- README.md docs/INTEGRATION.md docs/SESSION-HANDOFF.md \
+  package.json package-lock.json src/extension.js src/project-hooks.js \
+  test/activity-setup.test.js test/activity.test.js
+git commit -m "Keep project hook installation metadata local"
 git push -u origin HEAD
 ```
 
-These commands were not executed by the agent. New changes after this review
-require a fresh review; do not infer that the user copied or ran these commands.
+New changes after this review require a fresh review. This review covers current
+changes only and does not certify repository history or existing contents.
 Never publish raw local logs, reference bundles, home-path manifests or diagnostics.
