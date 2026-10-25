@@ -10,12 +10,16 @@ permissions:
 jobs:
   check:
     runs-on: macos-latest
+    env:
+      PUBLIC_FILES_MANIFEST: ${{ runner.temp }}/public-files.txt
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
           node-version: 22
           cache: npm
+      - name: Snapshot checkout files before installing dependencies
+        run: node scripts/snapshot-public-files.js "$PUBLIC_FILES_MANIFEST"
       - run: npm ci
       - run: npm run validate
       - run: npm run package

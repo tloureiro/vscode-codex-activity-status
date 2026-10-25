@@ -17,6 +17,15 @@ The public-file check uses the user's read-only `git-safe` wrapper by default;
 `GIT_READ_ONLY_BIN` can select another approved read-only wrapper. No Git writes
 are part of validation, source updates or packaging.
 
+GitHub runners do not have that personal wrapper. CI runs
+`node scripts/snapshot-public-files.js "$PUBLIC_FILES_MANIFEST"` in the fresh
+checkout before `npm ci`, storing a NUL-separated file list under the runner's
+temporary directory. The public-file check reads that list when
+`PUBLIC_FILES_MANIFEST` is set, without invoking Git. The snapshot excludes only
+root `.git` metadata, so accidentally committed generated/private files still
+fail validation. It must run before dependencies and build outputs are created;
+local validation continues to use the wrapper and includes untracked files.
+
 The packaging tool's `@azure/identity` dependency currently requires MSAL Node 6,
 which is affected by GHSA-xcx6-jx8p-x3h5. A scoped npm override pins its
 `@azure/msal-node` to patched version 7.1.1. MSAL 7 removes the interactive

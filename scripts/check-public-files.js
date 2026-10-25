@@ -4,12 +4,17 @@ const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const os = require('node:os');
 
-// Include untracked files so an initial commit receives the same checks.
+// CI snapshots the fresh checkout before installing dependencies. Local checks
+// include untracked files so an initial commit receives the same checks.
 // Report locations only, never the value of a possible credential.
-const files = execFileSync(
-  process.env.GIT_READ_ONLY_BIN || path.join(os.homedir(), 'sync', 'scripts', 'git-safe'),
-  ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
-  { encoding: 'utf8' },
+const files = (
+  process.env.PUBLIC_FILES_MANIFEST
+    ? fs.readFileSync(process.env.PUBLIC_FILES_MANIFEST, 'utf8')
+    : execFileSync(
+        process.env.GIT_READ_ONLY_BIN || path.join(os.homedir(), 'sync', 'scripts', 'git-safe'),
+        ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
+        { encoding: 'utf8' },
+      )
 )
   .split('\0')
   .filter(Boolean);
