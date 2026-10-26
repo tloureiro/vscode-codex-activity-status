@@ -11,6 +11,11 @@ for (const initiallyEnabled of [true, false]) {
   test(`setup stays local when initially ${initiallyEnabled ? 'enabled' : 'disabled'}`, async (t) => {
     const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'codex-activity-consent-')));
     const extensionPath = path.resolve(__dirname, '..');
+    const home = path.join(root, 'codex-home');
+    fs.mkdirSync(home);
+    const soundConfig = `[[hooks.Stop]]\n[[hooks.Stop.hooks]]\ntype = "command"\ncommand = "/usr/bin/afplay /System/Library/Sounds/Sosumi.aiff"\ntimeout = 3\n\n[[hooks.PermissionRequest]]\n[[hooks.PermissionRequest.hooks]]\ntype = "command"\ncommand = "/usr/bin/afplay /System/Library/Sounds/Ping.aiff"\ntimeout = 3\n\n[hooks.state."config.toml:stop:0:0"]\ntrusted_hash = "keep-stop"\n[hooks.state."config.toml:permission_request:0:0"]\ntrusted_hash = "keep-permission"\n`;
+    const userConfig = path.join(home, 'config.toml');
+    fs.writeFileSync(userConfig, soundConfig);
     const commands = new Map();
     const memory = new Map();
     const prompts = [];
@@ -140,6 +145,7 @@ for (const initiallyEnabled of [true, false]) {
     await commands.get('codexActivity.repair')();
     assert.deepEqual(errors, []);
     assert.equal(api.setupStatus().code, 'installed');
+    assert.equal(fs.readFileSync(userConfig, 'utf8'), soundConfig);
     runtime = api.setupStatus().manifest.root;
     assert.equal(fs.existsSync(path.join(root, '.codex/hooks.json')), true);
     assert.equal(fs.existsSync(path.join(root, '.vscode')), false);
@@ -164,6 +170,7 @@ for (const initiallyEnabled of [true, false]) {
     choice = 'Remove Project Hooks';
     await commands.get('codexActivity.repair')();
     assert.equal(fs.existsSync(path.join(root, '.codex/hooks.json')), false);
+    assert.equal(fs.readFileSync(userConfig, 'utf8'), soundConfig);
     assert.deepEqual(errors, []);
   });
 }

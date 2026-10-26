@@ -44,6 +44,8 @@ async function run() {
     assert.equal(api.beacon().color, '#8453d6');
     assert.equal(api.statusAction(), 'codexActivity.acknowledge');
     result.states.push('finished');
+    await until(() => fs.existsSync(path.join(root, 'global-Stop')), 'global completion hook');
+    result.globalCompletionHook = true;
     await vscode.commands.executeCommand('codexActivity.acknowledge');
     assert.equal(api.summary().unread, 0);
     await fetch(url + '/control/failure');
@@ -55,8 +57,13 @@ async function run() {
     const helper = path.join(root, 'project/.codex/codex-activity/observer.js');
     fs.renameSync(helper, helper + '-disabled');
     try {
+      fs.unlinkSync(path.join(root, 'global-Stop'));
       await prompt('HOOK_ACTIVITY_HELPER_ABSENT: Reply OK without tools.');
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      await until(
+        () => fs.existsSync(path.join(root, 'global-Stop')),
+        'global completion hook with missing activity helper',
+      );
+      result.globalCompletionWithoutHelper = true;
     } finally {
       fs.renameSync(helper + '-disabled', helper);
     }
@@ -67,6 +74,11 @@ async function run() {
     await fetch(url + '/control/approval');
     await prompt('HOOK_ACTIVITY_APPROVAL: perform the synthetic fixture action.');
     await until(() => api.summary().state === 'attention', 'amber approval signal');
+    await until(
+      () => fs.existsSync(path.join(root, 'global-PermissionRequest')),
+      'global permission hook',
+    );
+    result.globalPermissionHook = true;
     assert.equal(api.presentation().color, '#edb537');
     assert.equal(api.beacon().color, '#edb537');
     assert.equal(api.panelVisible(), false, 'Activity never opens the detail panel');

@@ -108,6 +108,17 @@ async function main() {
     `model = "mock-model"\nmodel_provider = "fixture"\napproval_policy = "on-request"\nsandbox_mode = "read-only"\ncli_auth_credentials_store = "file"\n[analytics]\nenabled = false\n[features]\nplugins = false\n[model_providers.fixture]\nname = "Local product fixture"\nbase_url = "${fixtureUrl}/v1"\nwire_api = "responses"\nrequires_openai_auth = false\nsupports_websockets = false\nrequest_max_retries = 0\nstream_max_retries = 0\n[projects.${JSON.stringify(workspace)}]\ntrust_level = "trusted"\n`,
   );
   const installer = new ProjectHooks(workspace, project);
+  // Deterministic stand-ins for global sounds: exercise the real Stop and
+  // PermissionRequest dispatch without playing audio during automated tests.
+  fs.appendFileSync(
+    path.join(home, 'config.toml'),
+    ['Stop', 'PermissionRequest']
+      .map(
+        (event) =>
+          `\n[[hooks.${event}]]\n[[hooks.${event}.hooks]]\ntype = "command"\ncommand = "/usr/bin/touch ${root}/global-${event}"\ntimeout = 3\n`,
+      )
+      .join(''),
+  );
   const manifest = installer.install(installer.plan(process.execPath));
   const profile = path.join(root, 'isolation.sb');
   fs.writeFileSync(
@@ -143,9 +154,12 @@ async function main() {
     const labels = Object.values(configured.hooks).flatMap((groups) =>
       groups.flatMap((group) => group.hooks.map((hook) => hook.statusMessage)),
     );
-    assert.equal(listing.data[0].hooks.length, 7);
+    assert.equal(listing.data[0].hooks.length, 9);
     assert.deepEqual(
-      listing.data[0].hooks.map((hook) => hook.statusMessage).sort(),
+      listing.data[0].hooks
+        .filter((hook) => hook.statusMessage?.startsWith('Codex Activity'))
+        .map((hook) => hook.statusMessage)
+        .sort(),
       labels.sort(),
       'Codex must expose all seven descriptive labels to its hook review UI',
     );

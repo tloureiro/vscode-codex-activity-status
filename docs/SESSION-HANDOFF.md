@@ -1,13 +1,20 @@
 # Session handoff
 
-Updated October 25, 2026. Read with `AGENTS.md` before resuming.
+Updated October 26, 2026. Read with `AGENTS.md` before resuming.
 
 ## Current product
 
-Version **0.4.4** consolidates twelve command palette entries into **five**:
+Version **0.4.5** preserves global sound hooks during repair and cleanup.
+Version 0.4.4 incorrectly classified the bare Stop/Sosumi sound command as an
+owned legacy hook and removed it. That recognition signature is now removed.
+Tests cover both sound commands and trust records in TOML/JSON, including cleanup
+alongside owned legacy handlers and the combined repair flow. Never treat a bare
+sound command as evidence of extension ownership.
+
+The palette retains **five** entries:
 Repair or Set Up, Show Panel, Acknowledge, Choose Project or Conversation, and
 Show Diagnostics. `src/repair.js` handles consented installation/update, missing
-owned-file recovery, recognized legacy notify/TOML/JSON/sound/proxy cleanup, and
+owned-file recovery, recognized legacy notify/TOML/JSON activity/proxy cleanup, and
 project removal. Old command IDs remain callable for saved keybindings without
 palette contributions. Legacy-only cleanup works without a project.
 
@@ -45,22 +52,30 @@ from VSIX. Existing ignored project hooks and local editor settings were preserv
 
 ## Validation and delivery
 
-Validation: macOS with Node 22.23.4, all **41 tests**, syntax, lint, formatting,
+Validation: macOS with Node 22.23.4, all **43 tests**, syntax, lint, formatting,
 workflow expressions, public-file checks, fresh dependency installation and VSIX
-packaging passed through `npm run ci:local`. A sandboxed attempt could not resolve
-GitHub for the pinned workflow validator; the network-enabled rerun passed.
+packaging passed through `npm run ci:local`. The final sandboxed rehearsal could
+not resolve GitHub for actionlint; the network-enabled rerun passed.
 The deterministic disposable-profile VS Code fixture also passed working,
-finished, failed, helper-recovery and attention states. It used no personal
+finished, failed, helper-recovery and attention states. It additionally verified
+global Stop and PermissionRequest hooks alongside the seven project hooks, and
+global Stop with our helper missing, using deterministic file markers rather
+than audio. It used no personal
 credentials or real model requests. Native maintenance dialogs are covered by
 controller tests, not automated clicks in the live fixture.
 
-The current build is `dist/codex-activity-status-0.4.4.vsix` (about 29 KB), with
+The current build is `dist/codex-activity-status-0.4.5.vsix` (about 29 KB), with
 five palette contributions and only production code/media, README and package
 metadata. Developer reports, AGENTS.md, research and local project integrations
-are excluded. README documentation links point to the repository. Seven older
-VSIX builds were removed. The package has not been installed in the normal
-profile; install it and reload VS Code to see the reduced command palette.
+are excluded. README documentation links point to the repository.
+Reload VS Code to activate the fix; the already-loaded 0.4.4 code can still
+remove Sosumi if repair runs before reload.
 Real project hook updates still require the product's own confirmation.
+
+Existing project hooks do not need repair for this change. If a global sound
+hook was already removed, restore its definition and review its trust in Codex
+settings → Hooks, then start a new chat. Repair must preserve both global sound
+hooks and their existing trust records.
 
 Run `npm run ci:local` on macOS with Node 22 before handing off further changes.
 Local CI rehearsal is not a GitHub CI result.

@@ -79,7 +79,9 @@ ownership. Use **Choose Project or Conversation** to select the displayed scope.
 Run **Codex Activity: Repair or Set Up** for installation, missing-file recovery,
 helper/runtime updates and old integration cleanup. One reviewed confirmation
 repairs the selected project and removes recognized legacy notify blocks, TOML/JSON
-hooks, sound hooks, proxy overrides and old helper files. Startup never migrates
+activity hooks, proxy overrides and old helper files. Your global sound hooks
+and their trust records are preserved; project activity hooks run alongside them.
+Startup never migrates
 configuration. Unowned or edited project files require manual review; they are
 never overwritten. Codex hook trust remains a separate review.
 

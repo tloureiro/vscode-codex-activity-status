@@ -8,7 +8,6 @@ const END = '# END codex-completion notifier';
 // Cleanup signatures only. They are never used to observe current Codex activity.
 const LEGACY_START = '# BEGIN codex-activity-status completion notifier';
 const LEGACY_END = '# END codex-activity-status completion notifier';
-const LEGACY_SOUND = '/usr/bin/afplay /System/Library/Sounds/Sosumi.aiff';
 
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -39,7 +38,6 @@ function tableSegments(text) {
 
 function isLegacyHookCommand(command) {
   return (
-    command === LEGACY_SOUND ||
     /codex[-_. ]?activity(?:[-_. ]?status)?/i.test(command) ||
     /tloureiro\.codex-activity-status/i.test(command)
   );
@@ -315,7 +313,6 @@ module.exports = {
   Integration,
   START,
   END,
-  LEGACY_SOUND,
   removeOwnedNotify,
   legacyHookCommands,
   removeLegacyTomlHooks,

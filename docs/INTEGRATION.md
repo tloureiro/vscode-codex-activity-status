@@ -131,6 +131,13 @@ legacy-only cleanup. Cleanup and installation span separate files and VS Code
 storage; they are not a cross-file transaction. If a later operation fails, its
 error is surfaced and running repair again reinspects the remaining state.
 
+Global sound hooks (including Stop/Sosumi and PermissionRequest/Ping) and their
+trust records are preserved by repair and legacy cleanup. Sound commands are not
+evidence of extension ownership. Codex loads user and project hooks together;
+project activity hooks do not replace user sound hooks. Version 0.4.4 incorrectly
+recognized the bare Sosumi command as legacy; if already removed, restore that
+global Stop hook, review its trust in Codex settings → Hooks and start a new chat.
+
 Unrelated user configuration is preserved. Existing 0.3 notifier configuration
 changes only after explicit repair/cleanup consent. Codex trust is never granted
 or removed by this flow. Deprecated completion-only settings and the unused color

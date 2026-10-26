@@ -105,12 +105,14 @@ function fixture(t) {
 test('one consent repairs project hooks and removes legacy configuration and artifacts', async (t) => {
   const f = fixture(t);
   f.legacy();
+  const sounds = `\n[[hooks.Stop]]\n[[hooks.Stop.hooks]]\ntype = "command"\ncommand = "/usr/bin/afplay /System/Library/Sounds/Sosumi.aiff"\ntimeout = 3\n\n[[hooks.PermissionRequest]]\n[[hooks.PermissionRequest.hooks]]\ntype = "command"\ncommand = "/usr/bin/afplay /System/Library/Sounds/Ping.aiff"\ntimeout = 3\n\n[hooks.state."config.toml:stop:0:0"]\ntrusted_hash = "keep-stop"\n[hooks.state."config.toml:permission_request:0:0"]\ntrusted_hash = "keep-permission"\n`;
+  fs.appendFileSync(f.integration.config, sounds);
   f.choose('Repair and Set Up');
   await f.repair.run();
   assert.equal(f.prompts.length, 1);
   assert.equal(f.hooks.status().code, 'installed');
   assert.equal(f.integration.plan().needed, false);
-  assert.equal(fs.readFileSync(f.integration.config, 'utf8'), 'model = "fixture"\n');
+  assert.equal(fs.readFileSync(f.integration.config, 'utf8'), 'model = "fixture"\n' + sounds);
   assert.equal(f.memory.get('activityEnabled'), true);
   assert.match(f.prompts[0][1].detail, /Codex trust remains a separate review/);
 });

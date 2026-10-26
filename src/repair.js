@@ -66,8 +66,9 @@ class Repair {
               : '',
             `Legacy scan: ${legacy.detail}`,
             legacy.needed
-              ? 'Repair also removes recognized old notify blocks, TOML/JSON activity or sound hooks and old helper files from Codex user configuration/storage, and restores an executable override only if still owned by this extension. Clean Up Legacy Only performs just that cleanup.'
+              ? 'Repair also removes recognized old notify blocks, TOML/JSON activity hooks and old helper files from Codex user configuration/storage, and restores an executable override only if still owned by this extension. Clean Up Legacy Only performs just that cleanup.'
               : '',
+            'Your global sound hooks and their trust records are preserved. Project activity hooks run alongside them.',
             'Removal deletes only unchanged owned project hooks and helper files; ignore rules and Codex trust records remain. Unrelated or edited files are preserved. Git ignores cannot untrack previously tracked files.',
             'After repair, review the seven “Codex Activity — …” hooks in Codex settings → Hooks and start a new chat. Codex trust remains a separate review.',
           ]
